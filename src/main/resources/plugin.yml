@@ -1,0 +1,3 @@
+name: RubyTeams
+version: '${project.version}'
+main: me.herohd.rubyteams.RubyTeams
