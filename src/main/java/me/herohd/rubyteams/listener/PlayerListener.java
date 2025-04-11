@@ -4,6 +4,7 @@ import me.herohd.rubyteams.RubyTeams;
 import me.herohd.rubyteams.manager.MySQLManager;
 import me.herohd.rubyteams.manager.TeamManager;
 import me.kr1s_d.rubyevent.event.EconomyGainEvent;
+import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -16,6 +17,7 @@ public class PlayerListener implements Listener {
     private MySQLManager manager;
     public PlayerListener(MySQLManager manager) {
         this.manager = manager;
+        Bukkit.getServer().getPluginManager().registerEvents(this, RubyTeams.getInstance());
     }
 
     @EventHandler
@@ -39,9 +41,12 @@ public class PlayerListener implements Listener {
     @EventHandler
     public void onEconomy(EconomyGainEvent e) {
         final Player player = e.getPlayer();
+        System.out.println(player.getName());
         if(player.hasPermission("rubyteams.bypass")) return;
-        String team = manager.getPlayerTeam(player.getName());
+        System.out.println(" ");
+        String team = manager.getPlayerTeam(player.getUniqueId().toString());
         if(team == null) return;
+        System.out.println("3");
         TeamManager.addAmount(player.getUniqueId(), (int) e.getReward());
     }
 }

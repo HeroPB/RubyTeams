@@ -69,6 +69,27 @@ public class TeamManager {
     public static long getPlayerAmount(String uuid) {
         return uuidAmount.getOrDefault(uuid, 0L);
     }
+    public static String getTeamWithHighestAmount() {
+        long maxAmount = -1;
+        String teamWithHighestAmount = null;
 
+        // Scorri tutti i team per trovare quello con l'amount più alto
+        for (Map.Entry<String, Long> entry : teamStatus.entrySet()) {
+            if (entry.getValue() > maxAmount) {
+                maxAmount = entry.getValue();
+                teamWithHighestAmount = entry.getKey();
+            }
+        }
+
+        return teamWithHighestAmount;
+    }
+
+    public static void clearAll() {
+        teamStatus.clear();
+        playerTeam.clear();
+        uuidAmount.clear();
+        RubyTeams.getInstance().getMySQLManager().updateTeamWinner();
+        RubyTeams.getInstance().getMySQLManager().nextWeek();
+    }
 
 }

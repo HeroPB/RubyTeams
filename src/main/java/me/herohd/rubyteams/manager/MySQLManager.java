@@ -1,6 +1,8 @@
 package me.herohd.rubyteams.manager;
 
 import java.sql.*;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
 
 public class MySQLManager {
@@ -12,7 +14,7 @@ public class MySQLManager {
     private int currentWeek; // Memorizza la settimana corrente
 
     public MySQLManager(String host, String database, String user, String password) {
-        this.url = "jdbc:mysql://" + host + "/" + database + "?useSSL=false";
+        this.url = "jdbc:mysql://" + host + "/" + database + "?useSSL=false&autoReconnect=true";
         this.user = user;
         this.password = password;
         connect();
@@ -203,6 +205,75 @@ public class MySQLManager {
                 connection.close();
                 System.out.println("Connessione MySQL chiusa!");
             }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public List<Integer> getUnclaimedWeeks(String playerUUID) {
+        List<Integer> unclaimedWeeks = new ArrayList<>();
+
+        // Aggiunge la verifica per "is_winner"
+        String query = "SELECT wp.week_number " +
+                "FROM weekly_progress wp " +
+                "JOIN weekly_team_stats wts ON wp.team_id = wts.team_id AND wp.week_number = wts.week_number " +
+                "WHERE wp.player_uuid = ? AND wp.claimed = 0 AND wts.is_winner = 1 " +
+                "AND wp.week_number < ?";
+
+        try (PreparedStatement stmt = connection.prepareStatement(query)) {
+            stmt.setString(1, playerUUID);
+            stmt.setInt(2, currentWeek);
+            ResultSet rs = stmt.executeQuery();
+
+            while (rs.next()) {
+                unclaimedWeeks.add(rs.getInt("week_number"));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return unclaimedWeeks;
+    }
+
+    public void claimReward(String playerUUID, int weekNumber) {
+        String query = "UPDATE weekly_progress SET claimed = 1 " +
+                "WHERE player_uuid = ? AND week_number = ? AND claimed = 0 AND week_number IN (" +
+                "SELECT wp.week_number FROM weekly_progress wp " +
+                "JOIN weekly_team_stats wts ON wp.team_id = wts.team_id AND wp.week_number = wts.week_number " +
+                "WHERE wp.player_uuid = ? AND wts.is_winner = 1)";
+
+        try (PreparedStatement stmt = connection.prepareStatement(query)) {
+            stmt.setString(1, playerUUID);
+            stmt.setInt(2, weekNumber);
+            stmt.setString(3, playerUUID);
+            int rowsUpdated = stmt.executeUpdate();
+
+            if (rowsUpdated > 0) {
+                System.out.println("Ricompensa riscattata per il player " + playerUUID + " nella settimana " + weekNumber);
+            } else {
+                System.out.println("Nessuna ricompensa da riscattare per " + playerUUID + " nella settimana " + weekNumber);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+    public void updateTeamWinner() {
+        String query = "UPDATE weekly_team_stats wts " +
+                "JOIN ( " +
+                "   SELECT team_id " +
+                "   FROM weekly_team_stats " +
+                "   WHERE week_number = ? " +
+                "   ORDER BY total_money DESC " +
+                "   LIMIT 1 " +
+                ") winner " +
+                "ON wts.week_number = ? AND wts.team_id = winner.team_id " +
+                "SET wts.is_winner = 1";
+
+        try (PreparedStatement stmt = connection.prepareStatement(query)) {
+            stmt.setInt(1, currentWeek);
+            stmt.setInt(2, currentWeek);
+            stmt.executeUpdate();
+            System.out.println("🏆 Il team vincitore della settimana " + currentWeek + " è stato impostato!");
         } catch (SQLException e) {
             e.printStackTrace();
         }
