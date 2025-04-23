@@ -11,6 +11,8 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.scheduler.BukkitRunnable;
 
+import static me.herohd.rubyteams.manager.HappyHourManager.isHappyHourActiveForTeam;
+
 public class PlayerListener implements Listener {
 
 
@@ -23,7 +25,10 @@ public class PlayerListener implements Listener {
     @EventHandler
     public void onJoin(PlayerJoinEvent e) {
         final Player player = e.getPlayer();
-        if(manager.getPlayerTeam(player.getUniqueId().toString()) != null) return;
+        if(manager.getPlayerTeam(player.getUniqueId().toString()) != null) {
+            TeamManager.addPlayerExist(player.getUniqueId().toString());
+            return;
+        }
         String assignTeam = TeamManager.assignPlayer(player.getUniqueId().toString());
         if(assignTeam == null) return;
 
@@ -41,12 +46,14 @@ public class PlayerListener implements Listener {
     @EventHandler
     public void onEconomy(EconomyGainEvent e) {
         final Player player = e.getPlayer();
-        System.out.println(player.getName());
         if(player.hasPermission("rubyteams.bypass")) return;
-        System.out.println(" ");
         String team = manager.getPlayerTeam(player.getUniqueId().toString());
         if(team == null) return;
-        System.out.println("3");
-        TeamManager.addAmount(player.getUniqueId(), (int) e.getReward());
+        int amount = (int) e.getReward();
+
+        if (isHappyHourActiveForTeam(team)) {
+            amount *= 2;
+        }
+        TeamManager.addAmount(player.getUniqueId(), amount);
     }
 }

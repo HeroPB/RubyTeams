@@ -1,0 +1,22 @@
+name: "&fScava &c10k &fblocchi"
+boss-bar-message: "&cScava blocchi &8(&c%amount_nido%&8/&c%amount_gusci%&8) &2- &a%time%"  #PRIMA GUSCI, POI NIDO
+boss-bar-message-win: "&cTeam Vincitore&8: %winner%"  #PRIMA GUSCI, POI NIDO
+
+start-event-message: |-
+  &f
+  &f &c&lNUOVO SCONTRO FRA TEAM
+  &f &7&oFlood, flood, spam, spam!
+  &f
+  &f Scrivete in chat il più possibile per far vincere
+  &f il proprio team, m'arcomando a cosa scrivete che vi conosco!
+  &f &f
+
+type: MESSAGE
+
+duration: 60 #Minuti
+
+team-rewards: "100*%amount_team%"
+
+rewards:
+  - "eco give %player% [1000*%percentage%]"
+  - "say ciao %player%"

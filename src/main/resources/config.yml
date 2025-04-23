@@ -1,0 +1,24 @@
+event-per-day: 3
+event-hour-range: 13-23
+debug-event-hour: 03:00
+
+messages:
+  start-event: |-
+    &f
+    &f &c&lNUOVA QUEST GLOBALE
+    &f %name%
+    &f
+  expired-quest:  |-
+    &f
+    &f &c&lQUEST GLOBALE TERMINATA
+    &f Non avete &cfinito&f in tempo!
+    &f
+  end-quest:  |-
+    &f
+    &f &c&lQUEST GLOBALE TERMINATA
+    &f &FColoro che hanno &ccontribuito
+    &f &Falmeno con &c%percentage%% &friceveranno
+    &f &le ricompense!
+    &f 
+    &f La tua percentuale&8: &c%player_percentage%&8% 
+    &f

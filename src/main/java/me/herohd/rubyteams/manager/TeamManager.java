@@ -92,4 +92,9 @@ public class TeamManager {
         RubyTeams.getInstance().getMySQLManager().nextWeek();
     }
 
+    public static void addPlayerExist(String uuid) {
+        long playerAmount = RubyTeams.getInstance().getMySQLManager().getPlayerAmount(uuid);
+        uuidAmount.put(uuid, playerAmount);
+    }
+
 }

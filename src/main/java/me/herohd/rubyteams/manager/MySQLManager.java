@@ -138,6 +138,22 @@ public class MySQLManager {
         }
     }
 
+    public void updateTeamAmount(String team_name, long amount) {
+        int teamId = getTeamId(team_name);
+
+        String teamQuery = "INSERT INTO weekly_team_stats (team_id, week_number, total_money) " +
+                "VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE total_money = total_money + ?";
+        try (PreparedStatement stmt = connection.prepareStatement(teamQuery)) {
+            stmt.setInt(1, teamId);
+            stmt.setInt(2, currentWeek);
+            stmt.setLong(3, amount);
+            stmt.setLong(4, amount);
+            stmt.executeUpdate();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
     public long getTeamAmount(String teamName) {
         int teamId = getTeamId(teamName);
         if (teamId == -1) return 0;
@@ -277,5 +293,20 @@ public class MySQLManager {
         } catch (SQLException e) {
             e.printStackTrace();
         }
+    }
+
+    public long getPlayerAmount(String playerUUID) {
+        String query = "SELECT money_earned FROM weekly_progress WHERE player_uuid = ? AND week_number = ?";
+        try (PreparedStatement stmt = connection.prepareStatement(query)) {
+            stmt.setString(1, playerUUID);
+            stmt.setInt(2, currentWeek);
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) {
+                return rs.getLong("money_earned");
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return 0;
     }
 }
