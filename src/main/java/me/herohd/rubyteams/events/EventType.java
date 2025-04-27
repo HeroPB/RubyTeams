@@ -1,5 +1,5 @@
 package me.herohd.rubyteams.events;
 
 public enum EventType {
-    MESSAGE
+    MESSAGE, BLOCK_FIND
 }

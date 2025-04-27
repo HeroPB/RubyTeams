@@ -1,5 +1,7 @@
 package me.herohd.rubyteams.manager;
 
+import me.herohd.rubyteams.RubyTeams;
+
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
@@ -79,7 +81,37 @@ public class MySQLManager {
     public String assignTeamToPlayer(String playerUUID) {
         int ordineCount = getTeamPlayerCount(1);
         int gusciCount = getTeamPlayerCount(2);
-        int selectedTeamId = (ordineCount < gusciCount) ? 1 : (gusciCount < ordineCount) ? 2 : (random.nextBoolean() ? 1 : 2);
+
+        int selectedTeamId;
+
+        if (currentWeek == 0) {
+            // Prima settimana: logica standard senza top player
+            selectedTeamId = (ordineCount < gusciCount) ? 1 : (gusciCount < ordineCount) ? 2 : (random.nextBoolean() ? 1 : 2);
+        } else {
+            int previousWeek = currentWeek - 1;
+
+            // Recupera la lista dei top player della settimana precedente
+            List<String> topPlayers = getTopPlayers(previousWeek, 10);
+            boolean isTopPlayer = topPlayers.contains(playerUUID);
+
+            int ordineTopCount = getTopPlayerCountInTeam(1);
+            int gusciTopCount = getTopPlayerCountInTeam(2);
+
+            if (isTopPlayer) {
+                // Se è un top player, assegna al team con meno top player
+                if (ordineTopCount < gusciTopCount) {
+                    selectedTeamId = 1;
+                } else if (gusciTopCount < ordineTopCount) {
+                    selectedTeamId = 2;
+                } else {
+                    // Se sono pari, logica standard
+                    selectedTeamId = (ordineCount < gusciCount) ? 1 : (gusciCount < ordineCount) ? 2 : (random.nextBoolean() ? 1 : 2);
+                }
+            } else {
+                // Non è top player, logica standard
+                selectedTeamId = (ordineCount < gusciCount) ? 1 : (gusciCount < ordineCount) ? 2 : (random.nextBoolean() ? 1 : 2);
+            }
+        }
 
         String query = "INSERT INTO weekly_progress (player_uuid, team_id, week_number) VALUES (?, ?, ?)";
         try (PreparedStatement stmt = connection.prepareStatement(query)) {
@@ -91,6 +123,54 @@ public class MySQLManager {
             e.printStackTrace();
         }
         return getTeamName(selectedTeamId);
+    }
+
+
+    private List<String> getTopPlayers(int weekNumber, int limit) {
+        List<String> topPlayers = new ArrayList<>();
+        String query = "SELECT player_uuid FROM weekly_progress WHERE week_number = ? ORDER BY money_earned DESC LIMIT ?";
+        try (PreparedStatement stmt = connection.prepareStatement(query)) {
+            stmt.setInt(1, weekNumber);
+            stmt.setInt(2, limit);
+            ResultSet rs = stmt.executeQuery();
+            while (rs.next()) {
+                topPlayers.add(rs.getString("player_uuid"));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return topPlayers;
+    }
+
+    private int getTopPlayerCountInTeam(int teamId) {
+        int previousWeek = currentWeek - 1;
+        List<String> topPlayers = getTopPlayers(previousWeek, 10);
+
+        if (topPlayers.isEmpty()) return 0;
+
+        StringBuilder placeholders = new StringBuilder();
+        for (int i = 0; i < topPlayers.size(); i++) {
+            placeholders.append("?");
+            if (i < topPlayers.size() - 1) {
+                placeholders.append(",");
+            }
+        }
+
+        String query = "SELECT COUNT(*) AS count FROM weekly_progress WHERE week_number = ? AND team_id = ? AND player_uuid IN (" + placeholders.toString() + ")";
+        try (PreparedStatement stmt = connection.prepareStatement(query)) {
+            stmt.setInt(1, currentWeek);
+            stmt.setInt(2, teamId);
+            for (int i = 0; i < topPlayers.size(); i++) {
+                stmt.setString(i + 3, topPlayers.get(i));
+            }
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) {
+                return rs.getInt("count");
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return 0;
     }
 
     private int getTeamPlayerCount(int teamId) {
@@ -107,6 +187,42 @@ public class MySQLManager {
         }
         return 0;
     }
+
+    public void loadTopPlayers() {
+        TopPlayerManager manager = RubyTeams.getInstance().getTopPlayerManager();
+        try {
+            // Otteniamo il numero massimo di settimana esistente
+            String maxWeekQuery = "SELECT MAX(week_number) AS max_week FROM weekly_progress";
+            int maxWeek = 0;
+            try (Statement stmt = connection.createStatement();
+                 ResultSet rs = stmt.executeQuery(maxWeekQuery)) {
+                if (rs.next()) {
+                    maxWeek = rs.getInt("max_week");
+                }
+            }
+
+            for (int week = 0; week <= currentWeek && week <= maxWeek; week++) {  // Partiamo da 0 adesso
+                List<String> topPlayers = new ArrayList<>();
+
+                String topPlayersQuery = "SELECT player_uuid FROM weekly_progress WHERE week_number = ? ORDER BY money_earned DESC LIMIT 10";
+                try (PreparedStatement stmt = connection.prepareStatement(topPlayersQuery)) {
+                    stmt.setInt(1, week);
+                    ResultSet rs = stmt.executeQuery();
+                    while (rs.next()) {
+                        topPlayers.add(rs.getString("player_uuid"));
+                    }
+                }
+
+                manager.setTopPlayersForWeek(week, topPlayers);
+                System.out.println("[RubyTeams] Top player settimana " + week + ": " + topPlayers);
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+
 
     public void updatePlayerMoney(String playerUUID, long amount) {
         int teamId = getPlayerTeamId(playerUUID);
@@ -229,11 +345,10 @@ public class MySQLManager {
     public List<Integer> getUnclaimedWeeks(String playerUUID) {
         List<Integer> unclaimedWeeks = new ArrayList<>();
 
-        // Aggiunge la verifica per "is_winner"
-        String query = "SELECT wp.week_number " +
+        String query = "SELECT wp.week_number, wp.money_earned, wts.total_money " +
                 "FROM weekly_progress wp " +
                 "JOIN weekly_team_stats wts ON wp.team_id = wts.team_id AND wp.week_number = wts.week_number " +
-                "WHERE wp.player_uuid = ? AND wp.claimed = 0 AND wts.is_winner = 1 " +
+                "WHERE wp.player_uuid = ? AND wp.reward_claimed = 0 AND wts.is_winner = 1 " +
                 "AND wp.week_number < ?";
 
         try (PreparedStatement stmt = connection.prepareStatement(query)) {
@@ -242,7 +357,12 @@ public class MySQLManager {
             ResultSet rs = stmt.executeQuery();
 
             while (rs.next()) {
-                unclaimedWeeks.add(rs.getInt("week_number"));
+                long playerMoney = rs.getLong("money_earned");
+                long teamMoney = rs.getLong("total_money");
+
+                if (teamMoney > 0 && playerMoney >= teamMoney * 0.01) { // Deve aver fatto almeno l'1%
+                    unclaimedWeeks.add(rs.getInt("week_number"));
+                }
             }
         } catch (SQLException e) {
             e.printStackTrace();
@@ -251,28 +371,48 @@ public class MySQLManager {
         return unclaimedWeeks;
     }
 
-    public void claimReward(String playerUUID, int weekNumber) {
-        String query = "UPDATE weekly_progress SET claimed = 1 " +
-                "WHERE player_uuid = ? AND week_number = ? AND claimed = 0 AND week_number IN (" +
-                "SELECT wp.week_number FROM weekly_progress wp " +
+    public List<Integer> getLostWeeksWithContribution(String playerUUID) {
+        List<Integer> lostWeeks = new ArrayList<>();
+
+        String query = "SELECT wp.week_number, wp.money_earned, wts.total_money " +
+                "FROM weekly_progress wp " +
                 "JOIN weekly_team_stats wts ON wp.team_id = wts.team_id AND wp.week_number = wts.week_number " +
-                "WHERE wp.player_uuid = ? AND wts.is_winner = 1)";
+                "WHERE wp.player_uuid = ? AND wp.reward_claimed = 0 AND wts.is_winner = 0 " +
+                "AND wp.week_number < ?";
 
         try (PreparedStatement stmt = connection.prepareStatement(query)) {
             stmt.setString(1, playerUUID);
-            stmt.setInt(2, weekNumber);
-            stmt.setString(3, playerUUID);
-            int rowsUpdated = stmt.executeUpdate();
+            stmt.setInt(2, currentWeek);
+            ResultSet rs = stmt.executeQuery();
 
-            if (rowsUpdated > 0) {
-                System.out.println("Ricompensa riscattata per il player " + playerUUID + " nella settimana " + weekNumber);
-            } else {
-                System.out.println("Nessuna ricompensa da riscattare per " + playerUUID + " nella settimana " + weekNumber);
+            while (rs.next()) {
+                long playerMoney = rs.getLong("money_earned");
+                long teamMoney = rs.getLong("total_money");
+
+                if (teamMoney > 0 && playerMoney >= teamMoney * 0.01) { // Deve aver fatto almeno l'1%
+                    lostWeeks.add(rs.getInt("week_number"));
+                }
             }
         } catch (SQLException e) {
             e.printStackTrace();
         }
+
+        return lostWeeks;
     }
+
+    public void claimReward(String playerUUID, int weekNumber) {
+        String query = "UPDATE weekly_progress SET reward_claimed = 1 " +
+                "WHERE player_uuid = ? AND week_number = ?";
+
+        try (PreparedStatement stmt = connection.prepareStatement(query)) {
+            stmt.setString(1, playerUUID);
+            stmt.setInt(2, weekNumber);
+            stmt.executeUpdate();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
     public void updateTeamWinner() {
         String query = "UPDATE weekly_team_stats wts " +
                 "JOIN ( " +
@@ -308,5 +448,26 @@ public class MySQLManager {
             e.printStackTrace();
         }
         return 0;
+    }
+
+    public boolean isRewardClaimed(String playerUUID, int weekNumber) {
+        String query = "SELECT reward_claimed FROM weekly_progress WHERE player_uuid = ? AND week_number = ?";
+
+        try (PreparedStatement stmt = connection.prepareStatement(query)) {
+            stmt.setString(1, playerUUID);
+            stmt.setInt(2, weekNumber);
+            ResultSet rs = stmt.executeQuery();
+
+            if (rs.next()) {
+                return rs.getInt("reward_claimed") == 1;
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return false; // Se non trova il record, supponiamo che non sia stato reclamato
+    }
+
+    public int getCurrentWeek() {
+        return currentWeek;
     }
 }

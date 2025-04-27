@@ -21,9 +21,9 @@ public class NextWeekCommand implements SubCommand {
     public void execute(CommandSender commandSender, String[] strings) {
         final String winnerTeam = TeamManager.getTeamWithHighestAmount();
         Bukkit.broadcastMessage("§f" +
-                "\n§f §f§COMPLIMENTI AL TEAM §c§l" + winnerTeam + " " +
+                "\n§f §f§lCOMPLIMENTI AL TEAM §c§l" + winnerTeam + " " +
                 "\n§f Per aver §cvinto §fquesta settimana! I giocatori che" +
-                "\n§f facevano parte a quel team potranno riscattare le §cricompense" +
+                "\n§f facevano parte di quel team potranno riscattare le §cricompense" +
                 "\n§f al §c/warp pasqua§f! I team verranno mescolati, buon lavoro!" +
                 "\n§f §f");
         for (Player player : Bukkit.getOnlinePlayers()) {
