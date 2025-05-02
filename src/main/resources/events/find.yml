@@ -1,0 +1,69 @@
+name: "&fScava &c10k &fblocchi"
+boss-bar-message: "&cScava blocchi &8(&c%amount_nido%&8/&c%amount_gusci%&8) &2- &a%time%"  #PRIMA GUSCI, POI NIDO
+boss-bar-message-win: "&cTeam Vincitore&8: %winner%"  #PRIMA GUSCI, POI NIDO
+
+start-event-message: |-
+  &f
+  &f &c&lNUOVO SCONTRO FRA TEAM
+  &f &7&oFlood, flood, spam, spam!
+  &f
+  &f Scrivete in chat il più possibile per far vincere
+  &f il proprio team, m'arcomando a cosa scrivete che vi conosco!
+  &f &f
+
+type: MESSAGE
+
+duration: 60 #Minuti
+blocks:
+  - COAL_ORE;0;Carbone Grezzo
+  - GOLD_ORE;0;Oro Grezzo
+  - IRON_ORE;0;Ferro Grezzo
+  - EMERALD_ORE;0;Smeraldo Grezzo
+  - DIAMOND_BLOCK;0;Blocco di Diamante
+  - EMERALD_BLOCK;0;Blocco di Smeraldo
+  - IRON_BLOCK;0;Blocco di Ferro
+  - COAL_BLOCK;0;Blocco di Carbone
+  - GOLD_BLOCK;0;Blocco d'Oro
+  - GLOWSTONE;0;Glowstone
+  - SANDSTONE;0;Sandstone
+  - ICE;0;Ghiaccio
+  - STAINED_CLAY;13;Terracotta Verde
+  - STAINED_CLAY;4;Terracotta Gialla
+  - STAINED_CLAY;14;Terracotta Rossa
+  - WOOL;0;Lana Bianca
+  - WOOL;15;Lana Nera
+  - WOOL;1;Lana Arancione
+  - WOOL;6;Lana Rosa
+  - WOOL;14;Lana Rossa
+  - GRASS;0;Blocco d'erba
+  - STONE;0;Pietra
+  - QUARTZ_BLOCK;0;Blocco di Quarzo
+  - PRISMARINE;2;Prismarino Scuro
+  - WOOD;5;Assi di Quercia Scura
+  - WOOD;2;Assi di Betulla
+  - WOOD;4;Assi di Acacia
+  - CARPET;14;Tappeto Rosso
+  - CARPET;4;Tappeto Giallo
+  - DIRT;0;Terra
+  - PUMPKIN;0;Zucca
+  - LEAVES;0;Foglie di Quercia
+  - LEAVES;1;Foglie di Abete
+  - COBBLESTONE;0;Cobblestone
+  - STAINED_GLASS;3;Vetro Azzurro
+  - STAINED_GLASS;3;Vetro Azzurro
+  - STAINED_GLASS;6;Vetro Rosa
+  - CONCRETE;13;Calcestruzzo Verde
+  - CONCRETE;5;Calcestruzzo Lime
+  - CONCRETE;9;Calcestruzzo Ciano
+  - CONCRETE;1;Calcestruzzo Arancione
+  - CONCRETE;3;Calcestruzzo Azzurro
+  - CONCRETE;11;Calcestruzzo Blu
+  - CONCRETE;10;Calcestruzzo Viola
+  - CONCRETE;8;Calcestruzzo Grigio Chiaro
+
+
+team-rewards: "5000*%amount_team%"
+
+rewards:
+  - "eco give %player% [1000*%percentage%]"
+  - "say ciao %player%"

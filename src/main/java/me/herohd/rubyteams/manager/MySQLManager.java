@@ -6,6 +6,7 @@ import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.UUID;
 
 public class MySQLManager {
     private final String url;
@@ -465,6 +466,27 @@ public class MySQLManager {
             e.printStackTrace();
         }
         return false; // Se non trova il record, supponiamo che non sia stato reclamato
+    }
+
+    public List<TopPlayerManager.TopPlayerEntry> getTop10PlayersForTeam(String teamName) {
+        List<TopPlayerManager.TopPlayerEntry> topPlayers = new ArrayList<>();
+        int teamId = getTeamId(teamName);
+        if (teamId == -1) return topPlayers;
+
+        String query = "SELECT player_uuid, money_earned FROM weekly_progress WHERE team_id = ? AND week_number = ? ORDER BY money_earned DESC LIMIT 10";
+        try (PreparedStatement stmt = connection.prepareStatement(query)) {
+            stmt.setInt(1, teamId);
+            stmt.setInt(2, currentWeek);
+            ResultSet rs = stmt.executeQuery();
+            while (rs.next()) {
+                UUID uuid = UUID.fromString(rs.getString("player_uuid"));
+                double money = rs.getDouble("money_earned");
+                topPlayers.add(new TopPlayerManager.TopPlayerEntry(uuid, money));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return topPlayers;
     }
 
     public int getCurrentWeek() {

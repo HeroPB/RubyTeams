@@ -36,6 +36,7 @@ public final class RubyTeams extends JavaPlugin {
 
         TeamManager.load();
         mySQLManager.loadTopPlayers();
+        topPlayerManager.startTop10Updater(mySQLManager);
         new PlayerListener(mySQLManager);
 
         happyHourManager = new HappyHourManager();

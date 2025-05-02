@@ -1,6 +1,7 @@
 package me.herohd.rubyteams.hooks;
 
 import me.clip.placeholderapi.expansion.PlaceholderExpansion;
+import me.herohd.rubyteams.RubyTeams;
 import me.herohd.rubyteams.manager.TeamManager;
 import me.herohd.rubyteams.utils.Formatter;
 import org.bukkit.entity.Player;
@@ -25,6 +26,7 @@ public class PlaceholderExtension extends PlaceholderExpansion {
 
     @Override
     public @Nullable String onPlaceholderRequest(Player player, @NotNull String params) {
+        String[] par = params.split("_");
         if(params.startsWith("team")) {
             final String team = TeamManager.getTeam(player.getUniqueId().toString());
             if(team == null) return "VUOTO";
@@ -43,6 +45,16 @@ public class PlaceholderExtension extends PlaceholderExpansion {
         }
         if(params.startsWith("player-amount")) {
             return Formatter.format(TeamManager.getPlayerAmount(player.getUniqueId().toString()));
+        }
+        if(params.startsWith("top-earned")) {
+            String topTeam = par[1].toLowerCase();
+            int post = Integer.parseInt(par[2])-1;
+            return Formatter.format(RubyTeams.getInstance().getTopPlayerManager().getTop10ForTeam(topTeam).get(post).getMoneyEarned());
+        }
+        if(params.startsWith("top")) {
+            String topTeam = par[1].toLowerCase();
+            int post = Integer.parseInt(par[2])-1;
+            return RubyTeams.getInstance().getTopPlayerManager().getTop10ForTeam(topTeam).get(post).getPlayer();
         }
         return "none";
     }

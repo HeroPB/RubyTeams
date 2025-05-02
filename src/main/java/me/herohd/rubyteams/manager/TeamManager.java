@@ -1,6 +1,7 @@
 package me.herohd.rubyteams.manager;
 
 import me.herohd.rubyteams.RubyTeams;
+import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -42,7 +43,14 @@ public class TeamManager {
     }
 
     public static void addAmount(UUID p, int amount) {
-        RubyTeams.getInstance().getMySQLManager().updatePlayerMoney(p.toString(), amount);
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                RubyTeams.getInstance().getMySQLManager().updatePlayerMoney(p.toString(), amount);
+            }
+        }.runTaskAsynchronously(RubyTeams.getInstance());
+
+
         String team;
         if(!playerTeam.containsKey(p.toString())) {
             team = RubyTeams.getInstance().getMySQLManager().getPlayerTeam(p.toString());
