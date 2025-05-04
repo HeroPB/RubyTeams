@@ -361,7 +361,7 @@ public class MySQLManager {
                 long playerMoney = rs.getLong("money_earned");
                 long teamMoney = rs.getLong("total_money");
 
-                if (teamMoney > 0 && playerMoney >= teamMoney * 0.01) { // Deve aver fatto almeno l'1%
+                if (teamMoney > 0 && playerMoney >= teamMoney * 0.005) { // Deve aver fatto almeno l'1%
                     unclaimedWeeks.add(rs.getInt("week_number"));
                 }
             }
@@ -390,7 +390,7 @@ public class MySQLManager {
                 long playerMoney = rs.getLong("money_earned");
                 long teamMoney = rs.getLong("total_money");
 
-                if (teamMoney > 0 && playerMoney >= teamMoney * 0.01) { // Deve aver fatto almeno l'1%
+                if (teamMoney > 0 && playerMoney >= teamMoney * 0.005) { // Deve aver fatto almeno l'1%
                     lostWeeks.add(rs.getInt("week_number"));
                 }
             }

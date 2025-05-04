@@ -31,9 +31,23 @@ rewards-winner:
     - "event economy give cioccolato %player% 25000 --ignoreEvent"
     - "amc give %player% Seasonal14"
     - "crops virtual give %player% 250"
-    -
+  1:
+    - "cc give p RubyCrate 5 %player%"
+    - "amc give %player% CropsPouch 2"
+    - "event economy give cioccolato %player% 25000 --ignoreEvent"
+    - "crops virtual give %player% 250"
+    - "[5] cc give p RubyCrate 3 %player%"
+    - "[5] amc give %player% CropsPouch 1"
+    - "[5] crops virtual give %player% 100"
+
 rewards-loser:
   0:
     - "cc give p RubyCrate 1 %player%"
     - "event economy give cioccolato %player% 5000 --ignoreEvent"
     - "crops virtual give %player% 100"
+  1:
+    - "cc give p RubyCrate 1 %player%"
+    - "event economy give cioccolato %player% 5000 --ignoreEvent"
+    - "crops virtual give %player% 100"
+    - "[5] cc give p RubyCrate 1 %player%"
+    - "[5] amc give %player% CropsPouch 1"

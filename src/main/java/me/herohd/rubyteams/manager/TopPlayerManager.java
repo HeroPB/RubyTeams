@@ -27,6 +27,12 @@ public class TopPlayerManager {
         }, 0L, 20L * 30);
     }
 
+    public List<String> getWeekTopPlayers(int week) {
+        return weeklyTopPlayers.get(week);
+    }
+
+
+
 
 
     public void setTopPlayersForWeek(int weekNumber, List<String> topPlayers) {

@@ -1,5 +1,6 @@
 package me.herohd.rubyteams.command;
 
+import me.herohd.rubyteams.RubyTeams;
 import me.herohd.rubyteams.manager.TeamManager;
 import me.kr1s_d.commandframework.objects.SubCommand;
 import org.bukkit.Bukkit;
@@ -32,6 +33,7 @@ public class NextWeekCommand implements SubCommand {
             player.sendTitle("§c§lCOMPLIMENTI", "§fIl tuo team ha vinto!");
         }
         TeamManager.clearAll();
+        RubyTeams.getInstance().getMySQLManager().loadTopPlayers();
 
         for (Player player : Bukkit.getOnlinePlayers()) {
             final String s = TeamManager.assignPlayer(player.getUniqueId().toString());

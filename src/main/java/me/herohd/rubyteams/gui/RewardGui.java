@@ -15,6 +15,8 @@ import org.bukkit.inventory.meta.ItemMeta;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class RewardGui {
     private Player player;
@@ -77,7 +79,16 @@ public class RewardGui {
             if(mySQLManager.isRewardClaimed(player.getUniqueId().toString(), id)) return;
             mySQLManager.claimReward(player.getUniqueId().toString(), id);
             for (String reward : RubyTeams.getInstance().getConfigYML().getStringList("rewards-loser." + id)) {
-                Bukkit.dispatchCommand(Bukkit.getConsoleSender(), reward.replace("%player%", player.getName()));
+                boolean check = true;
+                int n = estraiNumero(reward);
+                for(int i = 0; i < n; i++) {
+                    if(RubyTeams.getInstance().getTopPlayerManager().getWeekTopPlayers(id).contains(player.getUniqueId().toString())) {
+                        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), reward.replaceFirst("\\[\\d+\\]\\s*", "").replace("%player%", player.getName()));
+                        check = false;
+                        break;
+                    }
+                }
+                if(check) Bukkit.dispatchCommand(Bukkit.getConsoleSender(), reward.replace("%player%", player.getName()));
             }
             gui.close(player);
         });
@@ -104,7 +115,16 @@ public class RewardGui {
             if(mySQLManager.isRewardClaimed(player.getUniqueId().toString(), id)) return;
             mySQLManager.claimReward(player.getUniqueId().toString(), id);
             for (String reward : RubyTeams.getInstance().getConfigYML().getStringList("rewards-winner." + id)) {
-                Bukkit.dispatchCommand(Bukkit.getConsoleSender(), reward.replace("%player%", player.getName()));
+                boolean check = true;
+                int n = estraiNumero(reward);
+                for(int i = 0; i < n; i++) {
+                    if(RubyTeams.getInstance().getTopPlayerManager().getWeekTopPlayers(id).contains(player.getUniqueId().toString())) {
+                        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), reward.replaceFirst("\\[\\d+\\]\\s*", "").replace("%player%", player.getName()));
+                        check = false;
+                        break;
+                    }
+                }
+                if(check) Bukkit.dispatchCommand(Bukkit.getConsoleSender(), reward.replace("%player%", player.getName()));
             }
             gui.close(player);
         });
@@ -140,6 +160,16 @@ public class RewardGui {
         itemStack.setItemMeta(meta);
 
         return new GuiItem(itemStack);
+    }
+
+    public int estraiNumero(String command) {
+        Pattern pattern = Pattern.compile("\\[(\\d+)]");
+        Matcher matcher = pattern.matcher(command);
+
+        if (matcher.find()) {
+            return Integer.parseInt(matcher.group(1));
+        }
+        return 0;
     }
 
 
