@@ -53,7 +53,18 @@ public class Utils {
             }
         }
 
-        return null; // Nessun ArmorStand trovato
+        return null; // aNessun ArmorStand trovato
+    }
+
+    public static Location parseLocationFromString(String locString) {
+        String[] parts = locString.split(";");
+        World world = Bukkit.getWorld(parts[0]);
+        double x = Double.parseDouble(parts[1]);
+        double y = Double.parseDouble(parts[2]);
+        double z = Double.parseDouble(parts[3]);
+        float yaw = Float.parseFloat(parts[4]);
+        float pitch = Float.parseFloat(parts[5]);
+        return new Location(world, x, y, z, yaw, pitch);
     }
 
 

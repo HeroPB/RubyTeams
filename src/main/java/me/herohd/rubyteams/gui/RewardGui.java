@@ -4,6 +4,7 @@ import dev.triumphteam.gui.guis.Gui;
 import dev.triumphteam.gui.guis.GuiItem;
 import me.herohd.rubyteams.RubyTeams;
 import me.herohd.rubyteams.manager.MySQLManager;
+import me.herohd.rubyteams.manager.TopPlayerManager;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -14,23 +15,19 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class RewardGui {
-    private Player player;
-    private MySQLManager mySQLManager;
-    private Gui gui;
-
-    private List<Integer> lostId = new ArrayList<>();
-    private List<Integer> winId = new ArrayList<>();
+    private final Player player;
+    private final MySQLManager mySQLManager;
+    private final Gui gui;
 
     public RewardGui(Player player) {
         this.player = player;
         this.mySQLManager = RubyTeams.getInstance().getMySQLManager();
-        lostId = mySQLManager.getLostWeeksWithContribution(player.getUniqueId().toString());
-        winId = mySQLManager.getUnclaimedWeeks(player.getUniqueId().toString());
         this.gui = Gui.gui().rows(3).title(Component.text("§c§lRICOMPENSE")).create();
         gui.disableAllInteractions();
         build();
@@ -38,140 +35,100 @@ public class RewardGui {
     }
 
     private void build() {
-        int start = 10;
-        int currentWeek = mySQLManager.getCurrentWeek();
+        int startSlot = 10;
+        // Ottieni tutti gli stati con una sola chiamata al DB
+        List<MySQLManager.WeeklyStatus> statuses = mySQLManager.getPlayerWeeklyStatuses(player.getUniqueId().toString());
 
-        for(int i = 0; i < currentWeek; i++) {
-            if(lostId.contains(i)) {
-                gui.setItem(start+i, createLostItem(i));
-            } else if (winId.contains(i)) {
-                gui.setItem(start+i, createWinItem(i));
-            } else if (mySQLManager.isRewardClaimed(player.getUniqueId().toString(), i)) {
-                gui.setItem(start+i, createAlredyClaimed(i));
+        for (MySQLManager.WeeklyStatus status : statuses) {
+            int weekDisplayNumber = status.weekNumber + 1;
+
+            if (status.claimed) {
+                gui.setItem(startSlot + status.weekNumber, createRewardItem(
+                        "§7Ricompensa settimana " + weekDisplayNumber + " già riscattata!",
+                        Arrays.asList("§fRicompensa già riscattata!"),
+                        Material.STAINED_GLASS_PANE, (byte) 15, false, null
+                ));
+            } else if (status.hasContributed) {
+                if (status.wasWinner) {
+                    gui.setItem(startSlot + status.weekNumber, createRewardItem(
+                            "§aRicompense settimana " + weekDisplayNumber,
+                            Arrays.asList("§7Complimenti a te ed al tuo team!", "§7Ora puoi riscattare le ricompense", "§f", "§a§oClicca per riscattare"),
+                            Material.STAINED_GLASS, (byte) 5, true, () -> giveRewards(status.weekNumber, "rewards-winner")
+                    ));
+                } else {
+                    gui.setItem(startSlot + status.weekNumber, createRewardItem(
+                            "§6Ricompense settimana " + weekDisplayNumber,
+                            Arrays.asList("§7Sfortunatamente il tuo team non ha vinto,", "§7ma puoi comunque riscattare una ricompensa!", "§f", "§e§oClicca per riscattare"),
+                            Material.STAINED_GLASS, (byte) 1, true, () -> giveRewards(status.weekNumber, "rewards-loser")
+                    ));
+                }
             } else {
-                gui.setItem(start+i, createNoClaim(i));
+                gui.setItem(startSlot + status.weekNumber, createRewardItem(
+                        "§cNessuna ricompensa per la settimana " + weekDisplayNumber,
+                        Arrays.asList("§fNon hai contribuito abbastanza, mi dispiace!"),
+                        Material.STAINED_GLASS, (byte) 14, false, null
+                ));
             }
         }
         gui.getFiller().fill(new GuiItem(new ItemStack(Material.STAINED_GLASS_PANE, 1, (byte) 15)));
     }
 
-    private GuiItem createLostItem(int id) {
-        int next = id+1;
-        ItemStack itemStack = new ItemStack(Material.STAINED_GLASS, 1, (byte) 1);
+    /**
+     * Metodo centralizzato per creare un item della GUI.
+     */
+    private GuiItem createRewardItem(String name, List<String> lore, Material material, byte data, boolean enchanted, Runnable action) {
+        ItemStack itemStack = new ItemStack(material, 1, data);
         ItemMeta meta = itemStack.getItemMeta();
-        meta.setDisplayName("§6Ricompense settimana " + next);
-        List<String> lore = new ArrayList<>();
-        lore.add("§7Sfortunatamente il tuo team non ha vinto questa");
-        lore.add("§7settimana ma puoi comunque riscattare le");
-        lore.add("§7ricompense di consolazione!");
-        lore.add("§f");
-        lore.add("§e§oClicca per riscattare");
+        meta.setDisplayName(name);
         meta.setLore(lore);
-        meta.addEnchant(Enchantment.BINDING_CURSE, 1, true);
-        meta.addItemFlags(org.bukkit.inventory.ItemFlag.HIDE_ENCHANTS);
-        meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
-        meta.addItemFlags(ItemFlag.HIDE_DESTROYS);
-        meta.addItemFlags(ItemFlag.HIDE_POTION_EFFECTS);
+        if (enchanted) {
+            meta.addEnchant(Enchantment.DURABILITY, 1, true);
+            meta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
+        }
         itemStack.setItemMeta(meta);
 
-        GuiItem a = new GuiItem(itemStack);
-        a.setAction(k -> {
-            if(mySQLManager.isRewardClaimed(player.getUniqueId().toString(), id)) return;
-            mySQLManager.claimReward(player.getUniqueId().toString(), id);
-            for (String reward : RubyTeams.getInstance().getConfigYML().getStringList("rewards-loser." + id)) {
-                boolean check = true;
-                int n = estraiNumero(reward);
-                for(int i = 0; i < n; i++) {
-                    if(RubyTeams.getInstance().getTopPlayerManager().getWeekTopPlayers(id).contains(player.getUniqueId().toString())) {
-                        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), reward.replaceFirst("\\[\\d+\\]\\s*", "").replace("%player%", player.getName()));
-                        check = false;
-                        break;
-                    }
-                }
-                if(check) Bukkit.dispatchCommand(Bukkit.getConsoleSender(), reward.replace("%player%", player.getName()));
+        GuiItem guiItem = new GuiItem(itemStack);
+        if (action != null) {
+            guiItem.setAction(event -> action.run());
+        }
+        return guiItem;
+    }
+
+    /**
+     * Metodo centralizzato per dare le ricompense.
+     */
+    private void giveRewards(int weekId, String configSection) {
+        mySQLManager.claimReward(player.getUniqueId().toString(), weekId);
+        List<TopPlayerManager.TopPlayerEntry> teamOne = RubyTeams.getInstance().getTopPlayerManager().getTop10ForTeamInWeek(1, weekId);
+        List<TopPlayerManager.TopPlayerEntry> teamTwo = RubyTeams.getInstance().getTopPlayerManager().getTop10ForTeamInWeek(2, weekId);
+
+        for (String rewardCommand : RubyTeams.getInstance().getConfigYML().getStringList(configSection + "." + weekId)) {
+            int requiredTopPosition = estraiNumero(rewardCommand);
+            String command = rewardCommand.replaceFirst("\\[\\d+\\]\\s*", "");
+
+            // Se il comando non ha un requisito di posizione OPPURE il giocatore è nella top list
+            if (requiredTopPosition == 0) {
+                Bukkit.dispatchCommand(Bukkit.getConsoleSender(), command.replace("%player%", player.getName()));
+                continue;
             }
-            gui.close(player);
-        });
-        return a;
-    }
-
-    private GuiItem createWinItem(int id) {
-        int next = id+1;
-        ItemStack itemStack = new ItemStack(Material.STAINED_GLASS, 1, (byte) 5);
-        ItemMeta meta = itemStack.getItemMeta();
-        meta.setDisplayName("§aRicompense settimana " + next);
-        List<String> lore = new ArrayList<>();
-        lore.add("§7Complimenti a te ed al tuo team!");
-        lore.add("§7Ora puoi riscattare le ricompense");
-        lore.add("§f");
-        lore.add("§a§oClicca per riscattare");
-        meta.setLore(lore);
-        meta.addEnchant(Enchantment.BINDING_CURSE, 1, true);
-        meta.addItemFlags(org.bukkit.inventory.ItemFlag.HIDE_ENCHANTS);
-        itemStack.setItemMeta(meta);
-
-        GuiItem a = new GuiItem(itemStack);
-        a.setAction(k -> {
-            if(mySQLManager.isRewardClaimed(player.getUniqueId().toString(), id)) return;
-            mySQLManager.claimReward(player.getUniqueId().toString(), id);
-            for (String reward : RubyTeams.getInstance().getConfigYML().getStringList("rewards-winner." + id)) {
-                boolean check = true;
-                int n = estraiNumero(reward);
-                for(int i = 0; i < n; i++) {
-                    if(RubyTeams.getInstance().getTopPlayerManager().getWeekTopPlayers(id).contains(player.getUniqueId().toString())) {
-                        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), reward.replaceFirst("\\[\\d+\\]\\s*", "").replace("%player%", player.getName()));
-                        check = false;
-                        break;
-                    }
+            for(int i = 0; i < requiredTopPosition; i++) {
+                if(teamOne.get(i).getPlayer().equalsIgnoreCase(player.getName())){
+                    Bukkit.dispatchCommand(Bukkit.getConsoleSender(), command.replace("%player%", player.getName()));
+                    break;
                 }
-                if(check) Bukkit.dispatchCommand(Bukkit.getConsoleSender(), reward.replace("%player%", player.getName()));
+                if(teamTwo.get(i).getPlayer().equalsIgnoreCase(player.getName())){
+                    Bukkit.dispatchCommand(Bukkit.getConsoleSender(), command.replace("%player%", player.getName()));
+                    break;
+                }
             }
-            gui.close(player);
-        });
-        return a;
+        }
+        gui.close(player);
+        player.sendMessage("§aHai riscattato le tue ricompense!");
     }
 
-    private GuiItem createAlredyClaimed(int id) {
-        int next = id+1;
-        ItemStack itemStack = new ItemStack(Material.STAINED_GLASS, 1, (byte) 15);
-        ItemMeta meta = itemStack.getItemMeta();
-        meta.setDisplayName("§7Ricompensa della settimana " + next + " già riscattata!");
-        List<String> lore = new ArrayList<>();
-        lore.add("§fRicompensa già riscattata!");
-        meta.setLore(lore);
-        meta.addEnchant(Enchantment.BINDING_CURSE, 1, true);
-        meta.addItemFlags(org.bukkit.inventory.ItemFlag.HIDE_ENCHANTS);
-        itemStack.setItemMeta(meta);
-
-        return new GuiItem(itemStack);
-    }
-
-
-    private GuiItem createNoClaim(int id) {
-        int next = id+1;
-        ItemStack itemStack = new ItemStack(Material.STAINED_GLASS, 1, (byte) 14);
-        ItemMeta meta = itemStack.getItemMeta();
-        meta.setDisplayName("§cNessuna ricompensa per la settimana " + next);
-        List<String> lore = new ArrayList<>();
-        lore.add("§fNon hai contribuito abbastanza, mi dispiace!");
-        meta.setLore(lore);
-        meta.addEnchant(Enchantment.BINDING_CURSE, 1, true);
-        meta.addItemFlags(org.bukkit.inventory.ItemFlag.HIDE_ENCHANTS);
-        itemStack.setItemMeta(meta);
-
-        return new GuiItem(itemStack);
-    }
-
-    public int estraiNumero(String command) {
+    private int estraiNumero(String command) {
         Pattern pattern = Pattern.compile("\\[(\\d+)]");
         Matcher matcher = pattern.matcher(command);
-
-        if (matcher.find()) {
-            return Integer.parseInt(matcher.group(1));
-        }
-        return 0;
+        return matcher.find() ? Integer.parseInt(matcher.group(1)) : 0;
     }
-
-
-
 }

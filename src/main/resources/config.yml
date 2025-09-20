@@ -22,7 +22,21 @@ messages:
     &f 
     &f La tua percentuale&8: &c%player_percentage%&8% 
     &f
-    
+
+teams:
+  team-one-name: "Nido"
+  team-two-name: "Gusci"
+  team-one-color: "#3366FF"  # Un blu acceso
+  team-two-color: "#FF3333"  # Un rosso acceso
+
+# config.yml
+discord-notifier:
+  enabled: true
+  webhook-url: "http://127.0.0.1:8080/notify-event"
+  secret-key: "FeZd1d6qLZyaVmIysIYvwTKSKhpNLnQg" # Per sicurezza
+
+event-rewards:
+  points-percentage-transfer: 5.0
 
 rewards-winner:
   0:

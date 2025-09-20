@@ -1,0 +1,34 @@
+# events/meteor_shower.yml
+
+# --- Info Base ---
+type: METEOR_SHOWER
+name: "&c&lPioggia di Meteoriti"
+duration: 5 # DURATA IN MINUTI DELL'EVENTO
+start-event-message: "&c&l[EVENTO] &eUn meteorite è atterrato allo spawn! Le squadre devono colpirlo per guadagnare punti!"
+
+# --- Boss Bar ---
+# Ora usiamo i placeholder per i team, come negli altri eventi
+boss-bar-message: "&c%team_one_name% &f%amount_1% &7- &c%team_two_name% &f%amount_2% &7| &eTempo: &f%time%"
+boss-bar-message-win: "&a&lEVENTO TERMINATO! &eIl team %winner% ha vinto!"
+
+# --- Impostazioni Meteorite ---
+meteorite:
+  name: "&c&lNucleo Energetico"
+  spawn-locations:
+    - "world;100;65;200;0;0"
+    - "world;115;65;210;0;0"
+    - "world;90;65;195;0;0"
+
+# --- Meccanica di Instabilità ---
+instability:
+  enabled: true
+  spawn-interval-seconds: 10 # Ogni quanti secondi prova a spawnare un destabilizzatore
+  lifespan-seconds: 8      # Per quanti secondi rimane attivo il destabilizzatore
+  points-to-remove: 25     # Punti sottratti alla squadra avversaria se colpito
+
+# --- Ricompense ---
+# Ora usiamo il sistema di ricompense standard di TeamEvent
+team-rewards: "%amount_team% * 10" # Esempio: 10 volte i punti ottenuti
+rewards:
+  - "eco give %player% [100000*%percentage%]"
+  - "token give %player% [50*%percentage%]"

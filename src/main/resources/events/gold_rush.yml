@@ -1,0 +1,55 @@
+# Nome dell'evento mostrato ai giocatori
+name: "&6&lFebbre dell'Oro"
+
+# Tipo di evento (deve corrispondere all'enum)
+type: GOLD_RUSH
+
+# Durata dell'evento in minuti
+duration: 10
+
+# Messaggio della Boss Bar durante l'evento
+# Placeholder disponibili: %team_one_name%, %team_two_name%, %amount_1%, %amount_2%, %time%
+boss-bar-message: "&6%team_one_name% &8(&e%amount_1%&8) &7vs &6%team_two_name% &8(&e%amount_2%&8) &2- &a%time%"
+
+# Messaggio della Boss Bar alla fine dell'evento
+boss-bar-message-win: "&6Team Vincitore&8: &e%winner%"
+
+# Messaggio inviato in chat all'inizio dell'evento
+start-event-message: |-
+  &f
+  &f &6&lEVENTO: FEBBRE DELL'ORO!
+  &f &7Per i prossimi %duration% minuti, rompendo qualsiasi blocco
+  &f avrai una piccola possibilità di trovare un &eFrammento d'Oro&f!
+  &f
+  &f Deposita i frammenti al &6Blocco d'Oro &fdesignato per
+  &f guadagnare punti per il tuo team!
+  &f
+
+# --- IMPOSTAZIONI SPECIFICHE DELL'EVENTO ---
+
+# Probabilità (in percentuale) di trovare un frammento rompendo un blocco.
+# 0.5 = 0.5% di probabilità.
+chance: 0.5
+
+# L'item custom che i giocatori troveranno
+fragment-item:
+  material: "GOLD_NUGGET"
+  name: "&eFrammento d'Oro"
+  lore:
+    - "&7Un frammento scintillante trovato"
+    - "&7durante la Febbre dell'Oro."
+    - ""
+    - "&eDepositalo per guadagnare punti!"
+  enchanted: true
+
+# Il blocco su cui i giocatori devono cliccare per depositare i frammenti.
+npc-deposit:
+  name: "&6Minatore d'Oro"
+  location: "world;150;64;-200;90;0" # Mondo;X;Y;Z;Yaw;Pitch
+
+# Ricompensa di punti per il team vincitore
+team-rewards: "2500 * %amount_team%"
+
+# Ricompense individuali per i giocatori del team vincente
+rewards:
+  - "eco give %player% [1000*%percentage%]"

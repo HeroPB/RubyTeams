@@ -16,10 +16,13 @@ public class MySQLManager {
     private final Random random = new Random();
     private int currentWeek; // Memorizza la settimana corrente
 
-    public MySQLManager(String host, String database, String user, String password) {
-        this.url = "jdbc:mysql://" + host + "/" + database + "?useSSL=false&autoReconnect=true";
-        this.user = user;
-        this.password = password;
+    public MySQLManager(RubyTeams plugin) {
+        // Ho modificato il costruttore per prendere l'istanza del plugin
+        // in modo da poter accedere alla config in modo pulito.
+        this.url = "jdbc:mysql://" + plugin.getConfigYML().getString("mysql.host") + "/" + plugin.getConfigYML().getString("mysql.database") + "?useSSL=false&autoReconnect=true";
+        this.user = plugin.getConfigYML().getString("mysql.user");
+        this.password = plugin.getConfigYML().getString("mysql.password");
+
         connect();
         loadCurrentWeek(); // Carica la settimana attuale
     }
@@ -80,37 +83,34 @@ public class MySQLManager {
     }
 
     public String assignTeamToPlayer(String playerUUID) {
-        int ordineCount = getTeamPlayerCount(1);
-        int gusciCount = getTeamPlayerCount(2);
+        int teamOneId = getTeamId(RubyTeams.getInstance().getTeamManager().getTeamOneName());
+        int teamTwoId = getTeamId(RubyTeams.getInstance().getTeamManager().getTeamTwoName());
+
+        int teamOneCount = getTeamPlayerCount(teamOneId);
+        int teamTwoCount = getTeamPlayerCount(teamTwoId);
 
         int selectedTeamId;
 
         if (currentWeek == 0) {
-            // Prima settimana: logica standard senza top player
-            selectedTeamId = (ordineCount < gusciCount) ? 1 : (gusciCount < ordineCount) ? 2 : (random.nextBoolean() ? 1 : 2);
+            selectedTeamId = (teamOneCount <= teamTwoCount) ? teamOneId : teamTwoId;
         } else {
             int previousWeek = currentWeek - 1;
-
-            // Recupera la lista dei top player della settimana precedente
             List<String> topPlayers = getTopPlayers(previousWeek, 10);
             boolean isTopPlayer = topPlayers.contains(playerUUID);
 
-            int ordineTopCount = getTopPlayerCountInTeam(1);
-            int gusciTopCount = getTopPlayerCountInTeam(2);
+            int teamOneTopCount = getTopPlayerCountInTeam(teamOneId);
+            int teamTwoTopCount = getTopPlayerCountInTeam(teamTwoId);
 
             if (isTopPlayer) {
-                // Se è un top player, assegna al team con meno top player
-                if (ordineTopCount < gusciTopCount) {
-                    selectedTeamId = 1;
-                } else if (gusciTopCount < ordineTopCount) {
-                    selectedTeamId = 2;
+                if (teamOneTopCount < teamTwoTopCount) {
+                    selectedTeamId = teamOneId;
+                } else if (teamTwoTopCount < teamOneTopCount) {
+                    selectedTeamId = teamTwoId;
                 } else {
-                    // Se sono pari, logica standard
-                    selectedTeamId = (ordineCount < gusciCount) ? 1 : (gusciCount < ordineCount) ? 2 : (random.nextBoolean() ? 1 : 2);
+                    selectedTeamId = (teamOneCount <= teamTwoCount) ? teamOneId : teamTwoId;
                 }
             } else {
-                // Non è top player, logica standard
-                selectedTeamId = (ordineCount < gusciCount) ? 1 : (gusciCount < ordineCount) ? 2 : (random.nextBoolean() ? 1 : 2);
+                selectedTeamId = (teamOneCount <= teamTwoCount) ? teamOneId : teamTwoId;
             }
         }
 
@@ -125,7 +125,6 @@ public class MySQLManager {
         }
         return getTeamName(selectedTeamId);
     }
-
 
     private List<String> getTopPlayers(int weekNumber, int limit) {
         List<String> topPlayers = new ArrayList<>();
@@ -145,16 +144,13 @@ public class MySQLManager {
 
     private int getTopPlayerCountInTeam(int teamId) {
         int previousWeek = currentWeek - 1;
+        if (previousWeek < 0) return 0;
         List<String> topPlayers = getTopPlayers(previousWeek, 10);
-
         if (topPlayers.isEmpty()) return 0;
 
         StringBuilder placeholders = new StringBuilder();
         for (int i = 0; i < topPlayers.size(); i++) {
-            placeholders.append("?");
-            if (i < topPlayers.size() - 1) {
-                placeholders.append(",");
-            }
+            placeholders.append("?").append(i < topPlayers.size() - 1 ? "," : "");
         }
 
         String query = "SELECT COUNT(*) AS count FROM weekly_progress WHERE week_number = ? AND team_id = ? AND player_uuid IN (" + placeholders.toString() + ")";
@@ -174,7 +170,7 @@ public class MySQLManager {
         return 0;
     }
 
-    private int getTeamPlayerCount(int teamId) {
+    public int getTeamPlayerCount(int teamId) {
         String query = "SELECT COUNT(*) AS count FROM weekly_progress WHERE team_id = ? AND week_number = ?";
         try (PreparedStatement stmt = connection.prepareStatement(query)) {
             stmt.setInt(1, teamId);
@@ -192,63 +188,43 @@ public class MySQLManager {
     public void loadTopPlayers() {
         TopPlayerManager manager = RubyTeams.getInstance().getTopPlayerManager();
         try {
-            // Otteniamo il numero massimo di settimana esistente
-            String maxWeekQuery = "SELECT MAX(week_number) AS max_week FROM weekly_progress";
-            int maxWeek = 0;
-            try (Statement stmt = connection.createStatement();
-                 ResultSet rs = stmt.executeQuery(maxWeekQuery)) {
-                if (rs.next()) {
-                    maxWeek = rs.getInt("max_week");
-                }
-            }
-
-            for (int week = 0; week <= currentWeek && week <= maxWeek; week++) {  // Partiamo da 0 adesso
-                List<String> topPlayers = new ArrayList<>();
-
-                String topPlayersQuery = "SELECT player_uuid FROM weekly_progress WHERE week_number = ? ORDER BY money_earned DESC LIMIT 10";
-                try (PreparedStatement stmt = connection.prepareStatement(topPlayersQuery)) {
-                    stmt.setInt(1, week);
-                    ResultSet rs = stmt.executeQuery();
-                    while (rs.next()) {
-                        topPlayers.add(rs.getString("player_uuid"));
-                    }
-                }
-
+            for (int week = 0; week <= currentWeek; week++) {
+                List<String> topPlayers = getTopPlayers(week, 10);
                 manager.setTopPlayersForWeek(week, topPlayers);
-                System.out.println("[RubyTeams] Top player settimana " + week + ": " + topPlayers);
             }
-
-        } catch (SQLException e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
+    public void addPoints(String playerUUID, int amount) { // Metodo per aggiungere punti (usato dal TeamManager)
+        updatePlayerMoney(playerUUID, amount);
+    }
 
+    public void setTeam(String playerUUID, String teamName) { // Metodo per impostare il team
+        // La logica di assegnazione è in assignTeamToPlayer, questo potrebbe non essere necessario
+        // o potrebbe essere usato per forzare un team.
+    }
 
     public void updatePlayerMoney(String playerUUID, long amount) {
         int teamId = getPlayerTeamId(playerUUID);
         if (teamId == -1) return;
 
-        String playerQuery = "INSERT INTO weekly_progress (player_uuid, team_id, week_number, money_earned) " +
-                "VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE money_earned = money_earned + ?";
+        String playerQuery = "UPDATE weekly_progress SET money_earned = money_earned + ? WHERE player_uuid = ? AND week_number = ?";
         try (PreparedStatement stmt = connection.prepareStatement(playerQuery)) {
-            stmt.setString(1, playerUUID);
-            stmt.setInt(2, teamId);
+            stmt.setLong(1, amount);
+            stmt.setString(2, playerUUID);
             stmt.setInt(3, currentWeek);
-            stmt.setLong(4, amount);
-            stmt.setLong(5, amount);
             stmt.executeUpdate();
         } catch (SQLException e) {
             e.printStackTrace();
         }
 
-        String teamQuery = "INSERT INTO weekly_team_stats (team_id, week_number, total_money) " +
-                "VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE total_money = total_money + ?";
+        String teamQuery = "UPDATE weekly_team_stats SET total_money = total_money + ? WHERE team_id = ? AND week_number = ?";
         try (PreparedStatement stmt = connection.prepareStatement(teamQuery)) {
-            stmt.setInt(1, teamId);
-            stmt.setInt(2, currentWeek);
-            stmt.setLong(3, amount);
-            stmt.setLong(4, amount);
+            stmt.setLong(1, amount);
+            stmt.setInt(2, teamId);
+            stmt.setInt(3, currentWeek);
             stmt.executeUpdate();
         } catch (SQLException e) {
             e.printStackTrace();
@@ -257,9 +233,9 @@ public class MySQLManager {
 
     public void updateTeamAmount(String team_name, long amount) {
         int teamId = getTeamId(team_name);
+        if (teamId == -1) return;
 
-        String teamQuery = "INSERT INTO weekly_team_stats (team_id, week_number, total_money) " +
-                "VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE total_money = total_money + ?";
+        String teamQuery = "INSERT INTO weekly_team_stats (team_id, week_number, total_money) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE total_money = total_money + ?";
         try (PreparedStatement stmt = connection.prepareStatement(teamQuery)) {
             stmt.setInt(1, teamId);
             stmt.setInt(2, currentWeek);
@@ -336,7 +312,6 @@ public class MySQLManager {
         try {
             if (connection != null && !connection.isClosed()) {
                 connection.close();
-                System.out.println("Connessione MySQL chiusa!");
             }
         } catch (SQLException e) {
             e.printStackTrace();
@@ -345,66 +320,26 @@ public class MySQLManager {
 
     public List<Integer> getUnclaimedWeeks(String playerUUID) {
         List<Integer> unclaimedWeeks = new ArrayList<>();
-
-        String query = "SELECT wp.week_number, wp.money_earned, wts.total_money " +
-                "FROM weekly_progress wp " +
-                "JOIN weekly_team_stats wts ON wp.team_id = wts.team_id AND wp.week_number = wts.week_number " +
-                "WHERE wp.player_uuid = ? AND wp.reward_claimed = 0 AND wts.is_winner = 1 " +
-                "AND wp.week_number < ?";
-
-        try (PreparedStatement stmt = connection.prepareStatement(query)) {
-            stmt.setString(1, playerUUID);
-            stmt.setInt(2, currentWeek);
-            ResultSet rs = stmt.executeQuery();
-
-            while (rs.next()) {
-                long playerMoney = rs.getLong("money_earned");
-                long teamMoney = rs.getLong("total_money");
-
-                if (teamMoney > 0 && playerMoney >= teamMoney * 0.005) { // Deve aver fatto almeno l'1%
-                    unclaimedWeeks.add(rs.getInt("week_number"));
-                }
+        for (WeeklyStatus status : getPlayerWeeklyStatuses(playerUUID)) {
+            if (!status.claimed && status.wasWinner && status.hasContributed) {
+                unclaimedWeeks.add(status.weekNumber);
             }
-        } catch (SQLException e) {
-            e.printStackTrace();
         }
-
         return unclaimedWeeks;
     }
 
     public List<Integer> getLostWeeksWithContribution(String playerUUID) {
         List<Integer> lostWeeks = new ArrayList<>();
-
-        String query = "SELECT wp.week_number, wp.money_earned, wts.total_money " +
-                "FROM weekly_progress wp " +
-                "JOIN weekly_team_stats wts ON wp.team_id = wts.team_id AND wp.week_number = wts.week_number " +
-                "WHERE wp.player_uuid = ? AND wp.reward_claimed = 0 AND wts.is_winner = 0 " +
-                "AND wp.week_number < ?";
-
-        try (PreparedStatement stmt = connection.prepareStatement(query)) {
-            stmt.setString(1, playerUUID);
-            stmt.setInt(2, currentWeek);
-            ResultSet rs = stmt.executeQuery();
-
-            while (rs.next()) {
-                long playerMoney = rs.getLong("money_earned");
-                long teamMoney = rs.getLong("total_money");
-
-                if (teamMoney > 0 && playerMoney >= teamMoney * 0.005) { // Deve aver fatto almeno l'1%
-                    lostWeeks.add(rs.getInt("week_number"));
-                }
+        for (WeeklyStatus status : getPlayerWeeklyStatuses(playerUUID)) {
+            if (!status.claimed && !status.wasWinner && status.hasContributed) {
+                lostWeeks.add(status.weekNumber);
             }
-        } catch (SQLException e) {
-            e.printStackTrace();
         }
-
         return lostWeeks;
     }
 
     public void claimReward(String playerUUID, int weekNumber) {
-        String query = "UPDATE weekly_progress SET reward_claimed = 1 " +
-                "WHERE player_uuid = ? AND week_number = ?";
-
+        String query = "UPDATE weekly_progress SET reward_claimed = 1 WHERE player_uuid = ? AND week_number = ?";
         try (PreparedStatement stmt = connection.prepareStatement(query)) {
             stmt.setString(1, playerUUID);
             stmt.setInt(2, weekNumber);
@@ -415,22 +350,12 @@ public class MySQLManager {
     }
 
     public void updateTeamWinner() {
-        String query = "UPDATE weekly_team_stats wts " +
-                "JOIN ( " +
-                "   SELECT team_id " +
-                "   FROM weekly_team_stats " +
-                "   WHERE week_number = ? " +
-                "   ORDER BY total_money DESC " +
-                "   LIMIT 1 " +
-                ") winner " +
-                "ON wts.week_number = ? AND wts.team_id = winner.team_id " +
-                "SET wts.is_winner = 1";
-
+        String query = "UPDATE weekly_team_stats SET is_winner = 1 WHERE week_number = ? AND team_id = " +
+                "(SELECT team_id FROM (SELECT team_id FROM weekly_team_stats WHERE week_number = ? ORDER BY total_money DESC LIMIT 1) AS winner)";
         try (PreparedStatement stmt = connection.prepareStatement(query)) {
             stmt.setInt(1, currentWeek);
             stmt.setInt(2, currentWeek);
             stmt.executeUpdate();
-            System.out.println("🏆 Il team vincitore della settimana " + currentWeek + " è stato impostato!");
         } catch (SQLException e) {
             e.printStackTrace();
         }
@@ -453,19 +378,17 @@ public class MySQLManager {
 
     public boolean isRewardClaimed(String playerUUID, int weekNumber) {
         String query = "SELECT reward_claimed FROM weekly_progress WHERE player_uuid = ? AND week_number = ?";
-
         try (PreparedStatement stmt = connection.prepareStatement(query)) {
             stmt.setString(1, playerUUID);
             stmt.setInt(2, weekNumber);
             ResultSet rs = stmt.executeQuery();
-
             if (rs.next()) {
                 return rs.getInt("reward_claimed") == 1;
             }
         } catch (SQLException e) {
             e.printStackTrace();
         }
-        return false; // Se non trova il record, supponiamo che non sia stato reclamato
+        return false;
     }
 
     public List<TopPlayerManager.TopPlayerEntry> getTop10PlayersForTeam(String teamName) {
@@ -491,5 +414,110 @@ public class MySQLManager {
 
     public int getCurrentWeek() {
         return currentWeek;
+    }
+
+    /**
+     * Una classe contenitore per lo stato di un giocatore in una singola settimana.
+     */
+    public static class WeeklyStatus {
+        public final int weekNumber;
+        public final boolean claimed;
+        public final boolean wasWinner;
+        public final boolean hasContributed;
+
+        public WeeklyStatus(int weekNumber, boolean claimed, boolean wasWinner, boolean hasContributed) {
+            this.weekNumber = weekNumber;
+            this.claimed = claimed;
+            this.wasWinner = wasWinner;
+            this.hasContributed = hasContributed;
+        }
+    }
+
+    /**
+     * NUOVO METODO OTTIMIZZATO: Recupera lo stato di tutte le settimane passate per un giocatore in una sola query.
+     */
+    public List<WeeklyStatus> getPlayerWeeklyStatuses(String playerUUID) {
+        List<WeeklyStatus> statuses = new ArrayList<>();
+        String query = "SELECT wp.week_number, wp.reward_claimed, wts.is_winner, wp.money_earned, wts.total_money " +
+                "FROM weekly_progress wp " +
+                "LEFT JOIN weekly_team_stats wts ON wp.team_id = wts.team_id AND wp.week_number = wts.week_number " +
+                "WHERE wp.player_uuid = ? AND wp.week_number < ?";
+
+        try (PreparedStatement stmt = connection.prepareStatement(query)) {
+            stmt.setString(1, playerUUID);
+            stmt.setInt(2, currentWeek);
+            ResultSet rs = stmt.executeQuery();
+
+            while (rs.next()) {
+                int week = rs.getInt("week_number");
+                boolean claimed = rs.getBoolean("reward_claimed");
+                boolean wasWinner = rs.getBoolean("is_winner");
+
+                long playerMoney = rs.getLong("money_earned");
+                long teamMoney = rs.getLong("total_money");
+                boolean hasContributed = (teamMoney > 0 && playerMoney >= teamMoney * 0.005);
+
+                statuses.add(new WeeklyStatus(week, claimed, wasWinner, hasContributed));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return statuses;
+    }
+
+    public void synchronizeTeamsWithDatabase(String teamOneName, String teamTwoName) {
+        // Query per il Team 1 (ID fisso a 1)
+        String queryTeamOne = "INSERT INTO teams (id, name) VALUES (1, ?) ON DUPLICATE KEY UPDATE name = ?";
+
+        try (PreparedStatement stmt = connection.prepareStatement(queryTeamOne)) {
+            stmt.setString(1, teamOneName); // Valore per INSERT
+            stmt.setString(2, teamOneName); // Valore per UPDATE
+            stmt.executeUpdate();
+        } catch (SQLException e) {
+            System.err.println("[RubyTeams] Impossibile sincronizzare il Team 1 con il database.");
+            e.printStackTrace();
+        }
+
+        // Query per il Team 2 (ID fisso a 2)
+        String queryTeamTwo = "INSERT INTO teams (id, name) VALUES (2, ?) ON DUPLICATE KEY UPDATE name = ?";
+
+        try (PreparedStatement stmt = connection.prepareStatement(queryTeamTwo)) {
+            stmt.setString(1, teamTwoName); // Valore per INSERT
+            stmt.setString(2, teamTwoName); // Valore per UPDATE
+            stmt.executeUpdate();
+        } catch (SQLException e) {
+            System.err.println("[RubyTeams] Impossibile sincronizzare il Team 2 con il database.");
+            e.printStackTrace();
+        }
+
+        System.out.println("[RubyTeams] Nomi dei team sincronizzati con il database.");
+    }
+
+    // --- NUOVO METODO ---
+    /**
+     * Ottiene i migliori 10 giocatori di un team per una settimana SPECIFICA.
+     * @param teamName Il nome del team.
+     * @param weekNumber Il numero della settimana da interrogare.
+     * @return Una lista di TopPlayerEntry per quella settimana.
+     */
+    public List<TopPlayerManager.TopPlayerEntry> getTop10PlayersForTeam(String teamName, int weekNumber) {
+        List<TopPlayerManager.TopPlayerEntry> topPlayers = new ArrayList<>();
+        int teamId = getTeamId(teamName);
+        if (teamId == -1) return topPlayers;
+
+        String query = "SELECT player_uuid, money_earned FROM weekly_progress WHERE team_id = ? AND week_number = ? ORDER BY money_earned DESC LIMIT 10";
+        try (PreparedStatement stmt = connection.prepareStatement(query)) {
+            stmt.setInt(1, teamId);
+            stmt.setInt(2, weekNumber); // Usa il parametro della settimana
+            ResultSet rs = stmt.executeQuery();
+            while (rs.next()) {
+                UUID uuid = UUID.fromString(rs.getString("player_uuid"));
+                double money = rs.getDouble("money_earned");
+                topPlayers.add(new TopPlayerManager.TopPlayerEntry(uuid, money));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return topPlayers;
     }
 }

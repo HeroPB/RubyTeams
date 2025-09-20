@@ -20,7 +20,7 @@ public class NextWeekCommand implements SubCommand {
 
     @Override
     public void execute(CommandSender commandSender, String[] strings) {
-        final String winnerTeam = TeamManager.getTeamWithHighestAmount();
+        final String winnerTeam = RubyTeams.getInstance().getTeamManager().getTeamWithHighestAmount();
         Bukkit.broadcastMessage("§f" +
                 "\n§f §f§lCOMPLIMENTI AL TEAM §c§l" + winnerTeam + " " +
                 "\n§f Per aver §cvinto §fquesta settimana! I giocatori che" +
@@ -28,15 +28,15 @@ public class NextWeekCommand implements SubCommand {
                 "\n§f al §c/warp pasqua§f! I team verranno mescolati, buon lavoro!" +
                 "\n§f §f");
         for (Player player : Bukkit.getOnlinePlayers()) {
-            if (!Objects.requireNonNull(TeamManager.getTeam(player.getUniqueId().toString())).equalsIgnoreCase(winnerTeam))
+            if (!Objects.requireNonNull(RubyTeams.getInstance().getTeamManager().getTeam(player)).equalsIgnoreCase(winnerTeam))
                 continue;
             player.sendTitle("§c§lCOMPLIMENTI", "§fIl tuo team ha vinto!");
         }
-        TeamManager.clearAll();
+        RubyTeams.getInstance().getTeamManager().clearAll();
         RubyTeams.getInstance().getMySQLManager().loadTopPlayers();
 
         for (Player player : Bukkit.getOnlinePlayers()) {
-            final String s = TeamManager.assignPlayer(player.getUniqueId().toString());
+            final String s = RubyTeams.getInstance().getTeamManager().assignPlayer(player);
             player.sendTitle("§6§lNUOVO TEAM", "§f" + s);
             player.sendMessage("§f\n" +
                     "§f §6§lPARTECIPI AD UN NUOVO TEAM\n" +

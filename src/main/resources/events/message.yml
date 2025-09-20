@@ -1,0 +1,32 @@
+name: "&c&lSimon Says"
+boss-bar-message: "&cTeam %team_one_name% &8(&c%amount_1%&8) &7vs &9Team %team_two_name% &8(&9%amount_2%&8) &2- &aRound %round%/%total_rounds%"
+boss-bar-message-win: "&aTeam Vincitore&8: &e%winner%"
+
+start-event-message: |-
+  &f
+  &f &c&lNUOVO SCONTRO FRA TEAM: SIMON SAYS
+  &f &7&oScrivi la frase che appare sullo schermo più velocemente che puoi!
+  &f
+  &f L'evento consiste in %total_rounds% round. Attenzione alle maiuscole!
+  &f
+
+type: MESSAGE
+
+# 'duration' ora rappresenta il numero di round totali dell'evento.
+duration: 10
+
+# NUOVA SEZIONE: Lista di frasi che l'evento sceglierà casualmente.
+phrases:
+  - "RubyTeams è il miglior plugin del mondo"
+  - "La programmazione è la mia passione"
+  - "Sopravvivere in prigione non è facile"
+  - "Vincere questo evento è l'unica cosa che conta"
+  - "Il team Nido vincerà sempre"
+  - "Il team Gusci Spezzati è imbattibile"
+  - "Un giorno saremo tutti liberi"
+  - "La pazienza è la virtù dei forti"
+
+team-rewards: "1000*%amount_team%"
+
+rewards:
+  - "eco give %player% [500*%percentage%]"

@@ -66,7 +66,11 @@ public class HappyHourManager implements Listener, CommandExecutor {
     }
 
     private void activateHappyHour() {
-        List<String> teams = new ArrayList<>(TeamManager.teamStatus.keySet());
+        // Usa i getter per i nomi dei team
+        List<String> teams = new ArrayList<>();
+        teams.add(RubyTeams.getInstance().getTeamManager().getTeamOneName());
+        teams.add(RubyTeams.getInstance().getTeamManager().getTeamTwoName());
+
         if (teams.isEmpty()) {
             scheduleNextHappyHour();
             return;
@@ -81,7 +85,7 @@ public class HappyHourManager implements Listener, CommandExecutor {
         bossBar.setVisible(true);
 
         for (Player player : Bukkit.getOnlinePlayers()) {
-            String team = TeamManager.getTeam(player.getUniqueId().toString());
+            String team = RubyTeams.getInstance().getTeamManager().getTeam(player);
             if (team != null && team.equals(currentTeam)) {
                 bossBar.addPlayer(player);
             }
@@ -126,7 +130,7 @@ public class HappyHourManager implements Listener, CommandExecutor {
     @EventHandler
     public void onJoin(PlayerJoinEvent e) {
         Player player = e.getPlayer();
-        String team = TeamManager.getTeam(player.getUniqueId().toString());
+        String team = RubyTeams.getInstance().getTeamManager().getTeam(player);
         if (isActive && team != null && team.equals(currentTeam) && bossBar != null) {
             bossBar.addPlayer(player);
         }
@@ -157,7 +161,7 @@ public class HappyHourManager implements Listener, CommandExecutor {
         Player player = (Player) sender;
 
         if (isActive) {
-            if (currentTeam != null && currentTeam.equals(TeamManager.getTeam(player.getUniqueId().toString()))) {
+            if (currentTeam != null && currentTeam.equals(RubyTeams.getInstance().getTeamManager().getTeam(player))) {
                 player.sendMessage("§6Happy Hour attivo per il tuo team §e" + currentTeam + "§6! Punti doppi attivi!");
             } else {
                 player.sendMessage("§eHappy Hour attivo per il team: §c" + currentTeam);

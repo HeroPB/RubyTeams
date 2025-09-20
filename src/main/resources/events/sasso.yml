@@ -1,0 +1,25 @@
+# events/rock_paper_scissors.yml
+
+type: ROCK_PAPER_SCISSORS
+name: "&e&lSasso, Carta, Forbice"
+duration: 0 # Non è a tempo totale, ma a duelli
+
+# --- Fasi dell'Evento ---
+signup-duration-seconds: 60 # Tempo per iscriversi cliccando l'NPC
+duel-countdown-seconds: 7   # Tempo per fare la propria scelta durante il duello
+delay-between-duels-seconds: 5 # Pausa tra la fine di un duello e l'inizio del successivo
+
+# --- NPC di Iscrizione ---
+signup-npc:
+  name: "&a&l[Clicca] Partecipa all'Evento"
+  location: "world;100;65;200;0;0" # Mondo;X;Y;Z;Yaw;Pitch
+
+# --- Messaggi ---
+start-event-message: "&6&l[EVENTO] &fSono aperte le iscrizioni per Sasso, Carta, Forbice! Clicca l'NPC allo spawn per partecipare!"
+boss-bar-message: "&c%team_one_name% &f%amount_1% &7- &c%team_two_name% &f%amount_2% &7| &eDuello in corso..."
+boss-bar-message-win: "&a&lEVENTO TERMINATO! &eIl team %winner% ha vinto la sfida!"
+
+# --- Ricompense (Standard) ---
+team-rewards: "%amount_team% * 50"
+rewards:
+  - "eco give %player% [50000*%percentage%]"

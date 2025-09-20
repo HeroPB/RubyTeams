@@ -3,6 +3,7 @@ version: '${project.version}'
 main: me.herohd.rubyteams.RubyTeams
 depend:
   - RubyEvent
+  - PlaceholderAPI
 commands:
   rubyteams:
     description: "aaa"

@@ -1,0 +1,34 @@
+# events/word_search.yml
+
+type: WORD_SEARCH
+name: "&a&lCerca la Parola"
+duration: 15 # Durata in minuti
+
+start-event-message: "&a&l[EVENTO] &eUn nuovo puzzle di parole è apparso allo spawn! Trovate le parole prima dell'altra squadra!"
+
+# --- Boss Bar ---
+boss-bar-message: "&a%team_one_name% &f%amount_1% &7- &a%team_two_name% &f%amount_2% &7| &eParole Trovate: %found%/%total%"
+boss-bar-message-win: "&a&lEVENTO TERMINATO! &eIl team %winner% ha vinto!"
+
+# --- Impostazioni Puzzle ---
+word-search:
+  grid-size: 15 # Dimensione della griglia (15x15)
+  words-to-find: # Lista di parole da inserire nel puzzle
+    - "MINIERA"
+    - "DIAMANTI"
+    - "RUBYTEAMS"
+    - "SPAWN"
+    - "PICCONE"
+    - "EVENTO"
+    - "PVP"
+    - "PLOT"
+    - "PRESTIGIO"
+
+  # --- Schermo di Mappe ---
+  # Posizione dell'angolo in alto a sinistra dello schermo
+  map-screen-location: "world;100;70;200"
+  # Grandezza dello schermo in blocchi (e mappe)
+  screen-width: 2 # Larghezza 2 mappe
+  screen-height: 2 # Altezza 2 mappe
+  # Direzione in cui è rivolto lo schermo (NORTH, SOUTH, EAST, WEST)
+  screen-facing: "SOUTH"

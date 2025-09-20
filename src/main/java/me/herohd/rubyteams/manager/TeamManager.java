@@ -1,6 +1,8 @@
 package me.herohd.rubyteams.manager;
 
 import me.herohd.rubyteams.RubyTeams;
+import org.bukkit.Bukkit;
+import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.HashMap;
@@ -9,100 +11,171 @@ import java.util.UUID;
 
 public class TeamManager {
 
-    public static Map<String, Long> teamStatus = new HashMap<>();
-    public static Map<String, String> playerTeam = new HashMap<>();
-    public static Map<String, Long> uuidAmount = new HashMap<>();
+    private final RubyTeams plugin;
+    private final MySQLManager mySQLManager;
+    private final Map<UUID, String> playerTeam = new HashMap<>();
+    private final Map<UUID, Long> playerPoints = new HashMap<>();
+    private final Map<String, Long> teamPoints = new HashMap<>();
 
-    public static void load() {
-        final long spezzati = RubyTeams.getInstance().getMySQLManager().getTeamAmount("Gusci Spezzati");
-        final long nido = RubyTeams.getInstance().getMySQLManager().getTeamAmount("Ordine del Nido");
-        teamStatus.put("Gusci Spezzati", spezzati);
-        teamStatus.put("Ordine del Nido", nido);
+    private String teamOneName;
+    private String teamTwoName;
+
+    public TeamManager(RubyTeams plugin) {
+        this.plugin = plugin;
+        this.mySQLManager = plugin.getMySQLManager();
     }
 
-    public static int getPosition(String uuid) {
-        if (!playerTeam.containsKey(uuid)) {
-            return -1;
-        }
+    public void loadTeamNames() {
+        this.teamOneName = plugin.getConfigYML().getString("teams.team-one-name");
+        this.teamTwoName = plugin.getConfigYML().getString("teams.team-two-name");
 
-        String playerTeamName = playerTeam.get(uuid);
-
-        long amountGusci = teamStatus.getOrDefault("Gusci Spezzati", 0L);
-        long amountOrdine = teamStatus.getOrDefault("Ordine del Nido", 0L);
-
-        String firstPlaceTeam = (amountGusci >= amountOrdine) ? "Gusci Spezzati" : "Ordine del Nido";
-        return playerTeamName.equals(firstPlaceTeam) ? 1 : 2;
+        // --- AGGIUNGI QUESTA RIGA ---
+        // Sincronizza i nomi appena caricati con il database.
+        mySQLManager.synchronizeTeamsWithDatabase(this.teamOneName, this.teamTwoName);
     }
 
-    public static String assignPlayer(String uuid) {
-        if(playerTeam.containsKey(uuid)) return null;
-        String assignTeam = RubyTeams.getInstance().getMySQLManager().assignTeamToPlayer(uuid);
-        if(assignTeam == null) return null;
-        playerTeam.put(uuid, assignTeam);
-        return assignTeam;
+    public void load() {
+        teamPoints.put(teamOneName, mySQLManager.getTeamAmount(teamOneName));
+        teamPoints.put(teamTwoName, mySQLManager.getTeamAmount(teamTwoName));
     }
 
-    public static void addAmount(UUID p, int amount) {
+    public void loadPlayerData(Player player) {
+        UUID uuid = player.getUniqueId();
         new BukkitRunnable() {
             @Override
             public void run() {
-                RubyTeams.getInstance().getMySQLManager().updatePlayerMoney(p.toString(), amount);
+                String team = mySQLManager.getPlayerTeam(uuid.toString());
+                long points = mySQLManager.getPlayerAmount(uuid.toString());
+                new BukkitRunnable() {
+                    @Override
+                    public void run() {
+                        if (team != null) playerTeam.put(uuid, team);
+                        playerPoints.put(uuid, points);
+                    }
+                }.runTask(plugin);
             }
-        }.runTaskAsynchronously(RubyTeams.getInstance());
-
-
-        String team;
-        if(!playerTeam.containsKey(p.toString())) {
-            team = RubyTeams.getInstance().getMySQLManager().getPlayerTeam(p.toString());
-            if(team == null) return;
-            playerTeam.put(p.toString(), team);
-        }
-        else team = playerTeam.get(p.toString());
-        teamStatus.put(team, teamStatus.getOrDefault(team, 0L) + amount);
-        uuidAmount.put(p.toString(), uuidAmount.getOrDefault(p.toString(), 0L) + amount);
+        }.runTaskAsynchronously(plugin);
     }
 
-    public static String getTeam(String uuid) {
-        if(playerTeam.containsKey(uuid)) return playerTeam.get(uuid);
-        final String team = RubyTeams.getInstance().getMySQLManager().getPlayerTeam(uuid);
-        if(team == null) return null;
-        playerTeam.put(uuid, team);
-        return team;
+    public void saveAndUnloadPlayerData(Player player) {
+        UUID uuid = player.getUniqueId();
+        // Rimuovi dalle cache per evitare dati duplicati
+        playerTeam.remove(uuid);
+        playerPoints.remove(uuid);
     }
 
-    public static long getAmountTeam(String team) {
-        return teamStatus.get(team);
-    }
+    public void addPoints(Player player, int amount) {
+        UUID uuid = player.getUniqueId();
+        String team = getTeam(player);
+        if (team == null) return;
 
-    public static long getPlayerAmount(String uuid) {
-        return uuidAmount.getOrDefault(uuid, 0L);
-    }
-    public static String getTeamWithHighestAmount() {
-        long maxAmount = -1;
-        String teamWithHighestAmount = null;
+        playerPoints.put(uuid, getPlayerAmount(player) + amount);
+        teamPoints.put(team, getTeamPoints(team) + amount);
 
-        // Scorri tutti i team per trovare quello con l'amount più alto
-        for (Map.Entry<String, Long> entry : teamStatus.entrySet()) {
-            if (entry.getValue() > maxAmount) {
-                maxAmount = entry.getValue();
-                teamWithHighestAmount = entry.getKey();
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                mySQLManager.updatePlayerMoney(uuid.toString(), amount);
             }
-        }
-
-        return teamWithHighestAmount;
+        }.runTaskAsynchronously(plugin);
     }
 
-    public static void clearAll() {
-        teamStatus.clear();
+    public int getPosition(Player player) {
+        String team = getTeam(player);
+        if (team == null) return -1;
+        return team.equals(getTeamWithHighestAmount()) ? 1 : 2;
+    }
+
+    public String assignPlayer(Player player) {
+        UUID uuid = player.getUniqueId();
+        if(playerTeam.containsKey(uuid)) return null;
+
+        String assignedTeam = mySQLManager.assignTeamToPlayer(uuid.toString());
+        if(assignedTeam == null) return null;
+
+        playerTeam.put(uuid, assignedTeam);
+        return assignedTeam;
+    }
+
+    public String getTeam(Player player) {
+        return playerTeam.get(player.getUniqueId());
+    }
+
+    public long getTeamPoints(String team) {
+        return teamPoints.getOrDefault(team, 0L);
+    }
+
+    public long getPlayerAmount(Player player) {
+        return playerPoints.getOrDefault(player.getUniqueId(), 0L);
+    }
+
+    public String getTeamWithHighestAmount() {
+        long amountOne = getTeamPoints(teamOneName);
+        long amountTwo = getTeamPoints(teamTwoName);
+        return (amountOne >= amountTwo) ? teamOneName : teamTwoName;
+    }
+
+    public void clearAll() {
         playerTeam.clear();
-        uuidAmount.clear();
-        RubyTeams.getInstance().getMySQLManager().updateTeamWinner();
-        RubyTeams.getInstance().getMySQLManager().nextWeek();
+        playerPoints.clear();
+        teamPoints.clear();
+        mySQLManager.updateTeamWinner();
+        mySQLManager.nextWeek();
+        load();
     }
 
-    public static void addPlayerExist(String uuid) {
-        long playerAmount = RubyTeams.getInstance().getMySQLManager().getPlayerAmount(uuid);
-        uuidAmount.put(uuid, playerAmount);
+    /**
+     * Aggiunge punti al punteggio globale di un team (cache + database).
+     *
+     * @param teamName Il nome del team a cui aggiungere i punti.
+     * @param amount   La quantità di punti da aggiungere.
+     */
+    public void addGlobalPoints(String teamName, long amount) {
+        if (teamName == null || amount <= 0) return;
+
+        // Aggiorna la cache in memoria
+        teamPoints.put(teamName, getTeamPoints(teamName) + amount);
+
+        // Aggiorna il database in modo asincrono
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                mySQLManager.updateTeamAmount(teamName, amount);
+            }
+        }.runTaskAsynchronously(plugin);
     }
 
+    /**
+     * Rimuove punti dal punteggio globale di un team (cache + database).
+     *
+     * @param teamName Il nome del team a cui rimuovere i punti.
+     * @param amount   La quantità di punti da rimuovere.
+     */
+    public void removeGlobalPoints(String teamName, long amount) {
+        if (teamName == null || amount <= 0) return;
+
+        // Aggiorna la cache in memoria, assicurandosi che non vada sotto zero
+        long currentPoints = getTeamPoints(teamName);
+        teamPoints.put(teamName, Math.max(0, currentPoints - amount));
+
+        // Aggiorna il database in modo asincrono passando un valore negativo
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                // Il tuo metodo updateTeamAmount aggiunge il valore, quindi passiamo un negativo per sottrarre
+                mySQLManager.updateTeamAmount(teamName, -amount);
+            }
+        }.runTaskAsynchronously(plugin);
+    }
+
+    public String getTeamOneName() { return teamOneName; }
+    public String getTeamTwoName() { return teamTwoName; }
+
+    public String getTeamOneColor() {
+        return plugin.getConfigYML().getString("teams.team-one-color");
+    }
+
+    public String getTeamTwoColor() {
+        return plugin.getConfigYML().getString("teams.team-two-color");
+    }
 }
