@@ -1,0 +1,35 @@
+# events/spooky_maze.yml
+
+name: "&8&lFuga dalla Cripta"
+type: SPOOKY_MAZE
+duration: 5 # Minuti di durata dell'evento
+
+boss-bar-message: "&5&lLabirinto Maledetto &f- &cTempo Rimanente: %time%"
+boss-bar-message-win: "&6Team Vincitore&8: &e%winner%"
+
+start-event-message: |-
+  &f
+  &f &c&lEVENTO: FUGA DALLA CRIPTA!
+  &f &7Un labirinto maledetto è apparso!
+  &f &7Trovate il blocco di &eDiamante&7 alla fine per
+  &f &7guadagnare punti per il vostro team!
+  &f
+
+# --- IMPOSTAZIONI SPECIFICHE DEL LABIRINTO ---
+maze:
+  # L'angolo in basso a sinistra (coordinate più basse) dove inizierà il labirinto
+  corner-location: "world;-50;64;100"
+
+  # Dimensioni in blocchi (meglio usare numeri dispari)
+  width: 25
+  height: 25
+
+  # Materiali per la costruzione
+  wall-material: "COBBLESTONE_WALL"
+  floor-material: "SOUL_SAND"
+  end-block-material: "DIAMOND_BLOCK"
+
+# Ricompense standard
+team-rewards: "100 * %amount_team%"
+rewards:
+  - "eco give %player% [1000*%percentage%]"

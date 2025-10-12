@@ -86,6 +86,9 @@ public abstract class TeamEvent {
             case ROCK_PAPER_SCISSORS:
                 return new RockPaperScissorsEvent(name, startMessage, bossBarTitle, bossBarTitleWin, duration, config, rewards, team_reward);
 
+            case SPOOKY_MAZE:
+                return new SpookyMazeEvent(name, startMessage, bossBarTitle, bossBarTitleWin, duration, config, rewards, team_reward);
+
             default:
                 throw new IllegalArgumentException("Tipo di evento non valido: " + type);
         }
