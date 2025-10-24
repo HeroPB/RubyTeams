@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/RubyTeams.iml" filepath="$PROJECT_DIR$/.idea/RubyTeams.iml" />
+      <module fileurl="file://$PROJECT_DIR$/RubyTeams.iml" filepath="$PROJECT_DIR$/RubyTeams.iml" />
     </modules>
   </component>
 </project>

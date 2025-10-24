@@ -53,6 +53,14 @@ rewards-winner:
     - "[5] cc give p RubyCrate 3 %player%"
     - "[5] amc give %player% CropsPouch 1"
     - "[5] crops virtual give %player% 100"
+  2:
+    - "cc give p RubyCrate 5 %player%"
+    - "amc give %player% CropsPouch 2"
+    - "event economy give cioccolato %player% 25000 --ignoreEvent"
+    - "crops virtual give %player% 250"
+    - "[5] cc give p RubyCrate 3 %player%"
+    - "[5] amc give %player% CropsPouch 1"
+    - "[5] crops virtual give %player% 100"
 
 rewards-loser:
   0:
@@ -65,3 +73,18 @@ rewards-loser:
     - "crops virtual give %player% 100"
     - "[5] cc give p RubyCrate 1 %player%"
     - "[5] amc give %player% CropsPouch 1"
+  2:
+    - "cc give p RubyCrate 1 %player%"
+    - "event economy give cioccolato %player% 5000 --ignoreEvent"
+    - "crops virtual give %player% 100"
+    - "[5] cc give p RubyCrate 3 %player%"
+    - "[5] amc give %player% CropsPouch 1"
+
+
+scam-team:
+  - "pepitospead;2"
+  - "GioZen2005;1"
+  - "biagio2002;1"
+  - "AngeloeMattias;2"
+  - "marioparide;2"
+  - "francy030;1"
