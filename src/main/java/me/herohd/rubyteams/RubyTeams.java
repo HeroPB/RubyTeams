@@ -3,7 +3,7 @@ package me.herohd.rubyteams;
 import me.herohd.rubyteams.command.*;
 import me.herohd.rubyteams.events.EventManager;
 import me.herohd.rubyteams.hooks.PlaceholderExtension;
-import me.herohd.rubyteams.listener.PlayerListener;
+import me.herohd.rubyteams.listener.*;
 import me.herohd.rubyteams.manager.HappyHourManager;
 import me.herohd.rubyteams.manager.MySQLManager;
 import me.herohd.rubyteams.manager.TeamManager;
@@ -12,9 +12,11 @@ import me.herohd.rubyteams.utils.Config;
 import me.kr1s_d.commandframework.CommandManager;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
 import org.bukkit.plugin.java.JavaPlugin;
 
-public final class RubyTeams extends JavaPlugin {
+public final class RubyTeams extends JavaPlugin implements Listener {
 
     private static RubyTeams instance;
 
@@ -27,6 +29,9 @@ public final class RubyTeams extends JavaPlugin {
     private EventManager eventManager; // --- AGGIUNTO ---
     private PlaceholderExtension placeholderExtension;
 
+    private ChatColorListener chatColorListener;
+    private GlobalEffectListener globalEffectListener; // Usa il nuovo listener
+
     @Override
     public void onEnable() {
         instance = this;
@@ -38,6 +43,9 @@ public final class RubyTeams extends JavaPlugin {
         this.topPlayerManager = new TopPlayerManager();
         this.happyHourManager = new HappyHourManager();
         this.eventManager = new EventManager(this); // --- AGGIUNTO ---
+
+        this.chatColorListener = new ChatColorListener(this);
+        this.globalEffectListener = new GlobalEffectListener(this); // Inizializza qui
 
         // Carica i dati di configurazione
         this.teamManager.loadTeamNames();
@@ -52,6 +60,7 @@ public final class RubyTeams extends JavaPlugin {
         // Registra i listener
         new PlayerListener(this);
         Bukkit.getPluginManager().registerEvents(happyHourManager, this);
+        Bukkit.getPluginManager().registerEvents(this, this);
 
         // Registra i comandi
         CommandManager commandManager = new CommandManager("rubyteams", "RubyTeams: ");
@@ -75,6 +84,11 @@ public final class RubyTeams extends JavaPlugin {
     public void onDisable() {
         getLogger().info("Salvataggio dati di RubyTeams in corso...");
         // Salva i dati per tutti i giocatori online
+
+        if (chatColorListener != null && chatColorListener.isActive()) {
+            chatColorListener.unregisterListener();
+        }
+
         for (Player player : Bukkit.getOnlinePlayers()) {
             teamManager.saveAndUnloadPlayerData(player);
         }
@@ -86,6 +100,26 @@ public final class RubyTeams extends JavaPlugin {
             placeholderExtension.unregister();
         }
         getLogger().info("RubyTeams disabilitato correttamente.");
+    }
+
+    @EventHandler
+    public void onTeamEventStart(TeamEventStartEvent event) {
+        if (chatColorListener != null) {
+            chatColorListener.registerListener();
+        }
+        if (globalEffectListener != null) {
+            globalEffectListener.startGlobalEffects(); // Attiva effetti globali
+        }
+    }
+
+    @EventHandler
+    public void onTeamEventFinish(TeamEventFinishEvent event) {
+        if (chatColorListener != null) {
+            chatColorListener.unregisterListener();
+        }
+        if (globalEffectListener != null) {
+            globalEffectListener.stopGlobalEffects(); // Disattiva effetti globali
+        }
     }
 
     // --- Getters per accedere alle istanze ---

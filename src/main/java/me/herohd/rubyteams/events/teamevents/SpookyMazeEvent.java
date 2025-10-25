@@ -6,6 +6,10 @@ import me.herohd.rubyteams.manager.TeamManager;
 import me.herohd.rubyteams.utils.Config;
 import me.herohd.rubyteams.utils.Formatter;
 import me.herohd.rubyteams.utils.MazeGenerator;
+// --- NUOVE IMPORTAZIONI ---
+import me.herohd.rubyteams.utils.MazeSolver;
+import me.herohd.rubyteams.utils.MazeSolver.Point;
+
 import org.bukkit.*;
 import org.bukkit.block.Block;
 import org.bukkit.boss.BarColor;
@@ -22,6 +26,7 @@ import org.bukkit.scoreboard.Team;
 
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors; // Nuova importazione
 
 public class SpookyMazeEvent extends TeamEvent implements Listener {
 
@@ -30,6 +35,9 @@ public class SpookyMazeEvent extends TeamEvent implements Listener {
     private final World mazeWorld;
     private final int mazeWidth, mazeHeight, wallHeight;
     private final Material wallMaterial, floorMaterial, endMaterial;
+
+    // --- NUOVO CAMPO GUIDA ---
+    private final Material guideBlockMaterial;
 
     // Campi dell'NPC
     private Entity entryNpc;
@@ -67,6 +75,9 @@ public class SpookyMazeEvent extends TeamEvent implements Listener {
         this.floorMaterial = Material.valueOf(config.getString("maze.floor-material"));
         this.endMaterial = Material.valueOf(config.getString("maze.end-block-material"));
 
+        // --- CARICA MATERIALE GUIDA ---
+        this.guideBlockMaterial = Material.valueOf(config.getString("maze.guide-block-material"));
+
         this.npcName = ChatColor.translateAlternateColorCodes('&', config.getString("maze.entry-npc.name"));
         this.npcLocation = parseFullLocationFromString(config.getString("maze.entry-npc.location"));
 
@@ -88,7 +99,7 @@ public class SpookyMazeEvent extends TeamEvent implements Listener {
 
         this.mazeScoreboard = Bukkit.getScoreboardManager().getNewScoreboard();
         this.mazeTeam = mazeScoreboard.registerNewTeam(teamName);
-        this.mazeTeam.setOption(Team.Option.NAME_TAG_VISIBILITY, Team.OptionStatus.NEVER);
+        this.mazeTeam.setOption(Team.Option.NAME_TAG_VISIBILITY, Team.OptionStatus.NEVER)
 
         Bukkit.broadcastMessage("§8[EVENTO] §7Il labirinto maledetto si sta componendo in un'altra dimensione...");
 
@@ -96,11 +107,34 @@ public class SpookyMazeEvent extends TeamEvent implements Listener {
     }
 
     private void buildMazeAsynchronously() {
+        // --- LOGICA ASINCRONA AGGIORNATA ---
         CompletableFuture.supplyAsync(() -> {
+                    // 1. Genera il labirinto
                     MazeGenerator generator = new MazeGenerator(mazeWidth, mazeHeight);
-                    return generator.generate();
+                    int[][] mazeData = generator.generate();
+
+                    // 2. Definisci Inizio e Fine
+                    Point startPoint = new Point((spawnPlatformSize - 1) / 2, spawnPlatformSize); // Uscita dallo spawn
+                    Point endPoint = new Point(mazeWidth - 2, mazeHeight - 2); // Punto premio
+
+                    // 3. Risolvi il labirinto
+                    List<Point> solutionPath = MazeSolver.solve(mazeData, startPoint, endPoint);
+
+                    // 4. Ritorna entrambi i risultati
+                    return new AbstractMap.SimpleEntry<>(mazeData, solutionPath);
+
                 }, runnable -> Bukkit.getScheduler().runTaskAsynchronously(plugin, runnable))
-                .thenAccept(mazeData -> {
+                .thenAccept(result -> {
+                    // --- LOGICA SINCRONA AGGIORNATA ---
+
+                    int[][] mazeData = result.getKey();
+                    List<Point> solutionPath = result.getValue();
+
+                    // Converti la lista del percorso in un Set di stringhe "x:z" per ricerche veloci
+                    Set<String> solutionSet = solutionPath.stream()
+                            .map(p -> p.x + ":" + p.z)
+                            .collect(Collectors.toSet());
+
                     new BukkitRunnable() {
                         private int z = 0;
                         private int x = 0;
@@ -120,40 +154,36 @@ public class SpookyMazeEvent extends TeamEvent implements Listener {
                                     baseLoc.getChunk().load();
                                 }
 
-                                // --- LOGICA DI COSTRUZIONE CORRETTA ---
-                                boolean isPerimeter = (x == 0 || z == 0 || x == mazeData[z].length - 1 || z == mazeData.length - 1);
-
-                                // 1. Piattaforma di Spawn (Priorità 1)
+                                // 1. Piattaforma di Spawn
                                 if (x < spawnPlatformSize && z < spawnPlatformSize) {
                                     Block floorBlock = baseLoc.getBlock();
                                     floorBlock.setType(spawnPlatformMaterial);
                                     mazeBlocks.add(floorBlock.getLocation());
-                                    // Pulisci l'area sopra (fino al tetto)
+                                    // Pulisci l'area sopra
                                     for (int y = 1; y <= wallHeight; y++) {
                                         baseLoc.clone().add(0, y, 0).getBlock().setType(Material.AIR);
                                     }
                                 }
-                                // 2. Costruzione Perimetro (Priorità 2)
-                                else if (isPerimeter) {
-                                    int perimeterWallHeight = roofEnabled ? wallHeight + 1 : wallHeight;
-                                    for (int y = 0; y < perimeterWallHeight; y++) {
-                                        Location wallBlockLoc = baseLoc.clone().add(0, y, 0);
-                                        wallBlockLoc.getBlock().setType(wallMaterial);
-                                        mazeBlocks.add(wallBlockLoc);
-                                    }
-                                }
-                                // 3. Labirinto Interno (Priorità 3)
+                                // 2. Labirinto e Muri
                                 else {
-                                    if (mazeData[z][x] == 1) { // Muro interno
+                                    if (mazeData[z][x] == 1) { // Muro
                                         for (int y = 0; y < wallHeight; y++) {
                                             Location wallBlockLoc = baseLoc.clone().add(0, y, 0);
                                             wallBlockLoc.getBlock().setType(wallMaterial);
                                             mazeBlocks.add(wallBlockLoc);
                                         }
-                                    } else { // Sentiero interno
+                                    } else { // Sentiero
                                         Block floorBlock = baseLoc.getBlock();
                                         floorBlock.setType(floorMaterial);
                                         mazeBlocks.add(floorBlock.getLocation());
+
+                                        // --- METTI I BLOCCHI GUIDA ---
+                                        if (solutionSet.contains(x + ":" + z)) {
+                                            Location guideBlockLoc = baseLoc.clone().subtract(0, 1, 0);
+                                            guideBlockLoc.getBlock().setType(guideBlockMaterial);
+                                            mazeBlocks.add(guideBlockLoc); // Aggiungi alla pulizia
+                                        }
+
                                         // Pulisci l'area sopra
                                         for (int y = 1; y < wallHeight; y++) {
                                             baseLoc.clone().add(0, y, 0).getBlock().setType(Material.AIR);
@@ -161,17 +191,14 @@ public class SpookyMazeEvent extends TeamEvent implements Listener {
                                     }
                                 }
 
-                                // 4. Tetto
+                                // 3. Tetto
                                 if (roofEnabled) {
                                     Location roofBlockLoc = baseLoc.clone().add(0, wallHeight, 0);
-                                    // Piazza il tetto SOLO se non c'è già un muro perimetrale più alto
-                                    // E non sopra lo spawn (che è già stato pulito)
-                                    if (roofBlockLoc.getBlock().getType() == Material.AIR && !(x < spawnPlatformSize && z < spawnPlatformSize)) {
+                                    if (roofBlockLoc.getBlock().getType() == Material.AIR) {
                                         roofBlockLoc.getBlock().setType(roofMaterial);
                                         mazeBlocks.add(roofBlockLoc);
                                     }
                                 }
-                                // --- FINE LOGICA CORRETTA ---
 
                                 x++;
                                 if (x >= mazeData[z].length) {
@@ -184,31 +211,37 @@ public class SpookyMazeEvent extends TeamEvent implements Listener {
                 });
     }
 
-    // onMazeBuilt, onNpcInteract, onPlayerMove, finishEvent, updateBossBarTitle,
-    // isFinished, e tutti gli altri metodi rimangono IDENTICI a prima.
+    // Metodo per perforare un muro (pulire il pavimento e l'aria)
+    private void carvePath(Location loc) {
+        Block floor = loc.getBlock();
+        floor.setType(floorMaterial);
+        mazeBlocks.add(floor.getLocation());
 
-    // ... (Copia e incolla il resto della classe dalla versione precedente) ...
-    // ... (da onMazeBuilt() fino alla fine) ...
-    // ...
+        for (int y = 1; y < wallHeight; y++) {
+            Location airLoc = loc.clone().add(0, y, 0);
+            airLoc.getBlock().setType(Material.AIR);
+            mazeBlocks.add(airLoc);
+        }
+    }
 
     private void onMazeBuilt(int[][] mazeData) {
         isBuilding = false;
 
-        // Posiziona il blocco finale.
-        // Lo spostiamo di 1 blocco all'interno.
+        // 1. Definiamo la posizione del blocco premio (Diamante)
         this.endBlockLocation = corner.clone().add(mazeWidth - 2, 0, mazeHeight - 2);
 
-        // Assicurati che il punto finale sia un sentiero, altrimenti scava
-        if (mazeData[mazeHeight - 2][mazeWidth - 2] == 1) {
-            endBlockLocation.getBlock().setType(floorMaterial);
-            // Pulisci l'aria sopra il blocco finale
-            for (int y = 1; y < wallHeight; y++) {
-                endBlockLocation.clone().add(0, y, 0).getBlock().setType(Material.AIR);
-            }
-        }
-        // Metti il blocco premio *sopra* il pavimento
-        endBlockLocation.clone().add(0, 1, 0).getBlock().setType(endMaterial);
+        // 2. Piazziamo il blocco premio (Diamante) sul pavimento
+        carvePath(endBlockLocation); // Scava il sentiero
+        endBlockLocation.getBlock().setType(endMaterial); // Piazza il diamante sul pavimento
 
+        // 3. Creiamo un'entrata per collegare lo spawn al labirinto
+        int entranceZ = (spawnPlatformSize - 1) / 2; // Centro della parete
+        carvePath(corner.clone().add(spawnPlatformSize, 0, entranceZ)); // Muro a X=size, Z=centro
+
+        // 4. Creiamo un'uscita nel muro perimetrale
+        carvePath(corner.clone().add(mazeWidth - 1, 0, mazeHeight - 2)); // Muro a X=max, Z=premio
+
+        // Spawna l'NPC
         if (npcLocation != null) {
             Location spawnLoc = npcLocation.clone().add(0.5, 0, 0.5);
             Slime slime = (Slime) spawnLoc.getWorld().spawn(spawnLoc, Slime.class);
@@ -249,10 +282,8 @@ public class SpookyMazeEvent extends TeamEvent implements Listener {
         Player player = event.getPlayer();
         if (playersFinished.contains(player.getUniqueId())) return;
 
-        // Controlla il blocco *sotto* i piedi del giocatore
         Block blockUnderPlayer = event.getTo().clone().subtract(0, 1, 0).getBlock();
 
-        // Confronta la location del blocco pavimento finale
         if (blockUnderPlayer.getLocation().equals(endBlockLocation)) {
 
             int points;
@@ -275,7 +306,6 @@ public class SpookyMazeEvent extends TeamEvent implements Listener {
             mazeTeam.removeEntry(player.getName());
             player.setScoreboard(Bukkit.getScoreboardManager().getMainScoreboard());
 
-            // Teleporta allo spawn (location dell'NPC)
             player.teleport(npcLocation.clone().add(0, 0.5, 0));
         }
     }

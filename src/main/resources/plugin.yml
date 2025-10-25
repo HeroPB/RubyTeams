@@ -4,6 +4,7 @@ main: me.herohd.rubyteams.RubyTeams
 depend:
   - RubyEvent
   - PlaceholderAPI
+  - ProtocolLib
 commands:
   rubyteams:
     description: "aaa"
