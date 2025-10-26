@@ -89,6 +89,12 @@ public abstract class TeamEvent {
             case SPOOKY_MAZE:
                 return new SpookyMazeEvent(name, startMessage, bossBarTitle, bossBarTitleWin, duration, config, rewards, team_reward);
 
+            case TRICK_OR_TREAT:
+                return new TrickOrTreatEvent(name, startMessage, bossBarTitle, bossBarTitleWin, duration, config, rewards, team_reward);
+
+            case GHOST_ESCAPE:
+                return new GhostEscapeEvent(name, startMessage, bossBarTitle, bossBarTitleWin, duration, config, rewards, team_reward);
+
             default:
                 throw new IllegalArgumentException("Tipo di evento non valido: " + type);
         }

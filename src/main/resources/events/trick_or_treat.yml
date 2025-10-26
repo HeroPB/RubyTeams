@@ -1,0 +1,43 @@
+# events/trick_or_treat.yml
+
+name: "&6&lDolcetto o Scherzetto"
+type: TRICK_OR_TREAT # Un nuovo tipo di evento
+
+duration: 5 # Minuti di durata
+
+boss-bar-message: "&6%team_one_name% &f(%amount_1%) &7vs &6%team_two_name% &f(%amount_2%) &7| &eTempo: %time%"
+boss-bar-message-win: "&6Team Vincitore&8: &e%winner%"
+
+start-event-message: |-
+  &f
+  &f &c&lEVENTO: DOLCETTO O SCHERZETTO!
+  &f &7Degli spiriti sono apparsi allo spawn!
+  &f &7Interagisci con loro per un &eDolcetto&7 (punti)
+  &f &7o uno &8Scherzetto&7 (malus)!
+  &f
+
+# --- Impostazioni specifiche ---
+
+# Punti guadagnati per un "Dolcetto"
+trick-points: 1
+
+# Probabilità (in %) di ricevere un "Dolcetto".
+# (100 - 75) = 25% probabilità di "Scherzetto"
+trick-chance: 75.0
+
+# Cooldown in secondi tra un'interazione e l'altra per giocatore
+cooldown-seconds: 5
+
+# NPC "Spiriti" (usiamo la stessa logica di GoldRush/SpookyMaze)
+npc-name: "&7&lSpirito Smarrito"
+npc-locations:
+  - "world;-40;120;0;0;0"  # Sostituisci con le coordinate che vuoi
+  - "world;-42;120;2;0;0"
+  - "world;-44;120;4;0;0"
+  - "world;-46;120;2;0;0"
+  - "world;-48;120;0;0;0"
+
+# Ricompense standard
+team-rewards: "1000*%amount_team%"
+rewards:
+  - "eco give %player% [1000*%percentage%]"

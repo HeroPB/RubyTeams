@@ -1,0 +1,62 @@
+# events/ghost_escape.yml
+
+name: "&7&lFuga dai Fantasmi"
+type: GHOST_ESCAPE # Il nostro nuovo tipo di evento
+
+duration: 5 # Minuti totali dell'evento
+
+boss-bar-message: "&8%team_one_name% &f(%amount_1% p.) &7vs &8%team_two_name% &f(%amount_2% p.) &7| &cTempo: %time%"
+boss-bar-message-win: "&8Team Vincitore&8: &e%winner%"
+
+start-event-message: |-
+  &f
+  &f &c&lEVENTO: FUGA DAI FANTASMI!
+  &f &7Siete stati teletrasportati in un'arena infestata.
+  &f &7Sopravvivete ai fantasmi! &cNON POTETE COMBATTERE!
+  &f &7Guadagnerete punti per ogni secondo di sopravvivenza.
+  &f
+
+# --- Impostazioni specifiche ---
+
+# Location dove i giocatori vengono teletrasportati all'inizio
+arena-spawn: "world;-50;120;0;0;0" # Sostituisci con le tue coordinate
+
+# Location dove i giocatori "presi" vengono teletrasportati
+spectator-spawn: "world;-50;130;0;0;0" # Es. una piattaforma sopra l'arena
+
+# Punti guadagnati per intervallo
+points-per-interval: 1
+# Intervallo in secondi (guadagna 1 punto ogni 10 secondi)
+point-interval-seconds: 10
+
+# Impostazioni dei Fantasmi
+ghost-count: 15 # Quanti fantasmi spawnare
+ghost-speed-amplifier: 1 # Velocità (0 = normale, 1 = veloce, 2 = molto veloce)
+
+# Lista di punti dove i fantasmi possono spawnare nell'arena
+ghost-spawn-points:
+  - "world;-40;120;10;0;0"
+  - "world;-40;120;-10;0;0"
+  - "world;-60;120;10;0;0"
+  - "world;-60;120;-10;0;0"
+  - "world;-50;120;15;0;0"
+  - "world;-50;120;-15;0;0"
+
+# --- NUOVA MECCANICA 1: Paranoia (Jump Scare) ---
+paranoia:
+  enabled: true
+  interval-seconds: 35 # Ogni 35 secondi
+  # Tipo; Durata (sec); Amplificatore (0=I, 1=II)
+  effect: "BLINDNESS;4;0" # Cecità I per 4 secondi
+
+# --- NUOVA MECCANICA 2: Trappole ---
+traps:
+  enabled: true
+  trap-block: "SOUL_SAND" # Blocco che fa scattare la trappola
+  # Tipo; Durata (sec); Amplificatore (0=I, 1=II)
+  effect: "SLOW;3;1" # Lentezza II per 3 secondi
+
+# Ricompense standard
+team-rewards: "1000*%amount_team%"
+rewards:
+  - "eco give %player% [1000*%percentage%]"

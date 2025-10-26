@@ -20,6 +20,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerInteractAtEntityEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
+import org.bukkit.event.player.PlayerQuitEvent; // <-- IMPORT AGGIUNTO
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scoreboard.Scoreboard;
 import org.bukkit.scoreboard.Team;
@@ -62,6 +63,9 @@ public class SpookyMazeEvent extends TeamEvent implements Listener {
     private final Set<UUID> playersFinished = new HashSet<>();
     private boolean isBuilding = false;
 
+    // --- NUOVO CAMPO PER INVISIBILITÀ ---
+    private final Set<UUID> playersInMaze = new HashSet<>();
+
     public SpookyMazeEvent(String name, String startMessage, String bossBarTitle, String bossBarTitleWin, long duration, Config config, List<String> reward, String team_reward) {
         super(name, startMessage, bossBarTitle, bossBarTitleWin, duration, config, reward, team_reward);
 
@@ -96,10 +100,11 @@ public class SpookyMazeEvent extends TeamEvent implements Listener {
         playersFinished.clear();
         mazeBlocks.clear();
         isBuilding = true;
+        playersInMaze.clear(); // <-- AGGIUNTO: Pulisce il set all'avvio
 
         this.mazeScoreboard = Bukkit.getScoreboardManager().getNewScoreboard();
         this.mazeTeam = mazeScoreboard.registerNewTeam(teamName);
-        this.mazeTeam.setOption(Team.Option.NAME_TAG_VISIBILITY, Team.OptionStatus.NEVER)
+        this.mazeTeam.setOption(Team.Option.NAME_TAG_VISIBILITY, Team.OptionStatus.NEVER); // <-- Errore di sintassi corretto
 
         Bukkit.broadcastMessage("§8[EVENTO] §7Il labirinto maledetto si sta componendo in un'altra dimensione...");
 
@@ -259,13 +264,54 @@ public class SpookyMazeEvent extends TeamEvent implements Listener {
         startTimeBasedFinishChecker();
     }
 
+    /**
+     * Gestisce la logica di visibilità quando un giocatore lascia il labirinto
+     * (finendo, morendo, quittando o alla fine dell'evento).
+     * Usa i metodi deprecati per NON rimuovere i giocatori dalla TAB.
+     */
+    @SuppressWarnings("deprecation") // Sopprimiamo l'avviso per hidePlayer/showPlayer
+    private void handlePlayerLeave(Player player) {
+        UUID playerUuid = player.getUniqueId();
+        // Rimuovi il giocatore dal set. Se non c'era, esci.
+        if (!playersInMaze.remove(playerUuid)) {
+            return;
+        }
+
+        // Il giocatore ha lasciato il labirinto.
+        // Rendilo di nuovo visibile a TUTTI i giocatori online
+        // e rendi TUTTI i giocatori online di nuovo visibili a lui.
+        for (Player other : Bukkit.getOnlinePlayers()) {
+            if (other.equals(player)) continue;
+
+            player.showPlayer(other);
+            other.showPlayer(player);
+        }
+    }
+
+
     @EventHandler
+    @SuppressWarnings("deprecation") // Sopprimiamo l'avviso per hidePlayer
     public void onNpcInteract(PlayerInteractAtEntityEvent event) {
         if (isBuilding || isFinished() || entryNpc == null) return;
 
         if (event.getRightClicked().equals(this.entryNpc)) {
             event.setCancelled(true);
             Player player = event.getPlayer();
+            UUID playerUuid = player.getUniqueId();
+
+            // --- INIZIO LOGICA INVISIBILITÀ ---
+            // 1. Nascondi tutti i giocatori GIÀ nel labirinto al nuovo giocatore
+            //    e nascondi il nuovo giocatore a loro.
+            for (UUID otherUuid : playersInMaze) {
+                Player other = Bukkit.getPlayer(otherUuid);
+                if (other != null) {
+                    player.hidePlayer(other); // Usa il metodo deprecato
+                    other.hidePlayer(player); // Usa il metodo deprecato
+                }
+            }
+            // 2. Aggiungi il nuovo giocatore al set
+            playersInMaze.add(playerUuid);
+            // --- FINE LOGICA INVISIBILITÀ ---
 
             player.setScoreboard(mazeScoreboard);
             mazeTeam.addEntry(player.getName());
@@ -303,12 +349,22 @@ public class SpookyMazeEvent extends TeamEvent implements Listener {
             Bukkit.broadcastMessage("§a[EVENTO] §e" + player.getName() + " §a(#" + playersFinished.size() + ") ha trovato l'uscita e ha guadagnato §e" + points + "§a punti!");
             player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1f, 1.2f);
 
+            handlePlayerLeave(player); // <-- AGGIUNTO: Ripristina la visibilità
+
             mazeTeam.removeEntry(player.getName());
             player.setScoreboard(Bukkit.getScoreboardManager().getMainScoreboard());
 
             player.teleport(npcLocation.clone().add(0, 0.5, 0));
         }
     }
+
+    @EventHandler
+    public void onPlayerQuit(PlayerQuitEvent event) {
+        // Rimuovi il giocatore dal tracciamento
+        // Non serve ri-mostrare, visto che sta uscendo.
+        playersInMaze.remove(event.getPlayer().getUniqueId());
+    }
+
 
     @Override
     public void finishEvent() {
@@ -319,11 +375,18 @@ public class SpookyMazeEvent extends TeamEvent implements Listener {
         }
         if (mazeTeam != null) {
             try {
-                for (String entry : mazeTeam.getEntries()) {
+                // Usiamo new HashSet per evitare ConcurrentModificationException
+                for (String entry : new HashSet<>(mazeTeam.getEntries())) {
                     Player p = Bukkit.getPlayerExact(entry);
                     if (p != null) {
+                        handlePlayerLeave(p); // <-- USA IL NUOVO METODO
                         p.setScoreboard(Bukkit.getScoreboardManager().getMainScoreboard());
+                    } else {
+                        // Il giocatore è offline, rimuovi solo il suo UUID
+                        UUID offlineUuid = Bukkit.getOfflinePlayer(entry).getUniqueId();
+                        playersInMaze.remove(offlineUuid);
                     }
+                    mazeTeam.removeEntry(entry); // Rimuovi dal team scoreboard
                 }
             } finally {
                 mazeTeam.unregister();
@@ -331,6 +394,8 @@ public class SpookyMazeEvent extends TeamEvent implements Listener {
                 mazeScoreboard = null;
             }
         }
+
+        playersInMaze.clear(); // Pulizia finale di sicurezza
 
         new BukkitRunnable() {
             private int index = 0;
@@ -389,6 +454,7 @@ public class SpookyMazeEvent extends TeamEvent implements Listener {
     public void unregisterListener() {
         PlayerMoveEvent.getHandlerList().unregister(this);
         PlayerInteractAtEntityEvent.getHandlerList().unregister(this);
+        PlayerQuitEvent.getHandlerList().unregister(this); // <-- AGGIUNTO
     }
 
     private Location parseFullLocationFromString(String locString) {

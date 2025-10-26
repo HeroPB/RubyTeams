@@ -141,7 +141,7 @@ public class GlobalEffectListener implements Listener {
         }
     }
 
-    // spawnRedstoneParticles rimane invariato
+    // --- METODO MODIFICATO ---
     private void spawnRedstoneParticles(Player player) {
         PacketContainer packet = protocolManager.createPacket(PacketType.Play.Server.WORLD_PARTICLES);
         Location loc = player.getLocation();
@@ -154,11 +154,8 @@ public class GlobalEffectListener implements Listener {
         packet.getFloat().write(6, 0.0f);
         packet.getIntegers().write(0, 5);
         packet.getIntegerArrays().write(0, new int[0]);
-        for (Player nearbyPlayer : player.getWorld().getPlayers()) {
-            if (nearbyPlayer.getLocation().distanceSquared(loc) < 25 * 25) {
-                protocolManager.sendServerPacket(nearbyPlayer, packet);
-            }
-        }
+
+        protocolManager.sendServerPacket(player, packet);
     }
 
     public boolean areEffectsActive() {
